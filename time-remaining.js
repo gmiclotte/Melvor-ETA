@@ -16,12 +16,13 @@
 // Later versions might break parts of this script
 // Big thanks to Xhaf#6478 and Visua#9999 for helping with parts of the code and troubleshooting
 
-// settings
-// true for 12h clock (AM/PM), false for 24h clock
-IS_12H_CLOCK = false;
-// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
-IS_SHORT_CLOCK = false;
-
+// settings can be toggled from the console, or edited here
+window.timeRemainingSettings = {
+	// true for 12h clock (AM/PM), false for 24h clock
+	IS_12H_CLOCK: false,
+	// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
+	IS_SHORT_CLOCK: false,
+};
 
 (function () {
 	function injectScript(main) {
@@ -108,7 +109,7 @@ IS_SHORT_CLOCK = false;
 		}
 
 		// Convert seconds to hours/minutes/seconds and format them
-		function secondsToHms(d, isShortClock = IS_SHORT_CLOCK) {
+		function secondsToHms(d, isShortClock = timeRemainingSettings.IS_SHORT_CLOCK) {
 			d = Number(d);
 			// split seconds in hours, minutes and seconds
 			let h = Math.floor(d / 3600);
@@ -148,7 +149,7 @@ IS_SHORT_CLOCK = false;
 		}
 
 		// Format date 24 hour clock
-		function DateFormat(now, then, is12h = IS_12H_CLOCK){
+		function DateFormat(now, then, is12h = timeRemainingSettings.IS_12H_CLOCK){
 			let days = daysBetween(now, then);
 			days = (days == 0) ? `` : (days == 1) ? ` tomorrow` : ` + ${days} days`;
 			let hours = then.getHours();
