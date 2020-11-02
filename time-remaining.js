@@ -112,30 +112,23 @@
 		}
 
 		// Format date 24 hour clock
-		function DateFormat(now,then){
-			let days = daysBetween(now,then);
+		function DateFormat(now, then, is12h = false){
+			let days = daysBetween(now, then);
 			days = (days == 0) ? `` : (days == 1) ? ` tomorrow` : ` + ${days} days`;
 			let hours = then.getHours();
-			hours = hours < 10 ? '0' + hours : hours;
 			let minutes = then.getMinutes();
+			// convert to 12h clock if required
+			let amOrPm = '';
+			if (is12h) {
+				amOrPm = hours >= 12 ? 'pm' : 'am';
+				hours = (hours % 12) || 12;
+			}
+			// pad numbers
+			hours = hours < 10 ? '0' + hours : hours;
 			minutes = minutes < 10 ? '0' + minutes : minutes;
-			let strTime = hours + ':' + minutes + days;
-			return strTime;
+			// concat and return remaining time
+			return hours + ':' + minutes + amOrPm + days;
 		}
-
-		// Format date 12 hour clock
-		// function DateFormat(now,then){
-			// 	let days = daysBetween(now,then)
-			// 	days = (days == 0) ? `` : (days == 1) ? ` tomorrow` : ` +${days} days`;
-			// let hours = date.getHours();
-			// let AmOrPm = hours >= 12 ? 'pm' : 'am';
-			// hours = (hours % 12) || 12;
-			// let minutes = date.getMinutes();
-			// minutes = minutes < 10 ? '0' + minutes : minutes;
-			// let strTime = hours + ':' + minutes + AmOrPm + days;
-			// return strTime;
-		// }
-
 
 		// Level to XP Array
 		const lvlToXp = Array.from({ length: 200 }, (_, i) => exp.level_to_xp(i));
