@@ -765,182 +765,49 @@ window.timeRemainingSettings = {
 			}
 		}
 
-		// ## SMITHING ##
-		var selectSmithRef = selectSmith;
-		window.selectSmith = function(...args) {
-			selectSmithRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Smithing);
-			} catch (e) {
-				console.error(e);
+		// select and start craft overrides
+		var selectRef = {};
+		var startRef = {};
+		[	// skill name, select names, < start name >
+			["Smithing", ["Smith"]],
+			["Fletching", ["Fletch"]],
+			["Runecrafting", ["Runecraft"]],
+			["Crafting", ["Craft"]],
+			["Herblore", ["Herblore"]],
+			["Cooking", ["Food"]],
+			["Firemaking", ["Log"], "burnLog"],
+			["Magic", ["Magic", "ItemForMagic"], "castMagic"],
+		].forEach(skill => {
+			let long = skill[0];
+			let shorts = skill[1];
+			let start = "start" + long;
+			if (skill.length > 2) {
+				start = skill[2];
 			}
-		};
-		var startSmithingRef = startSmithing;
-		window.startSmithing = function(...args) {
-			startSmithingRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Smithing);
-				taskComplete(CONSTANTS.skill.Smithing);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## FLETCHING ##
-		var selectFletchRef = selectFletch;
-		window.selectFletch = function(...args) {
-			selectFletchRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Fletching);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var startFletchingRef = startFletching;
-		window.startFletching = function(...args) {
-			startFletchingRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Fletching);
-				taskComplete(CONSTANTS.skill.Fletching);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## RUNECRAFTING ##
-		var selectRunecraftRef = selectRunecraft;
-		window.selectRunecraft = function(...args) {
-			selectRunecraftRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Runecrafting);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var startRunecraftingRef = startRunecrafting;
-		window.startRunecrafting = function(...args) {
-			startRunecraftingRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Runecrafting);
-				taskComplete(CONSTANTS.skill.Runecrafting);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## CRAFTING ##
-		var selectCraftRef = selectCraft;
-		window.selectCraft = function(...args) {
-			selectCraftRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Crafting);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var startCraftingRef = startCrafting;
-		window.startCrafting = function(...args) {
-			startCraftingRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Crafting);
-				taskComplete(CONSTANTS.skill.Crafting);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## HERBLORE ##
-		var selectHerbloreRef = selectHerblore;
-		window.selectHerblore = function(...args) {
-			selectHerbloreRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Herblore);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var startHerbloreRef = startHerblore;
-		window.startHerblore = function(...args) {
-			startHerbloreRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Herblore);
-				taskComplete(CONSTANTS.skill.Herblore);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## COOKING ##
-		var selectFoodRef = selectFood;
-		window.selectFood = function(...args) {
-			selectFoodRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Cooking);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var startCookingRef = startCooking;
-		window.startCooking = function(...args) {
-			startCookingRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Cooking);
-				taskComplete(CONSTANTS.skill.Cooking);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## FIREMAKING ##
-		var selectLogRef = selectLog;
-		window.selectLog = function(...args) {
-			selectLogRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Firemaking);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var burnLogRef = burnLog;
-		window.burnLog = function(...args) {
-			burnLogRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Firemaking);
-				taskComplete(CONSTANTS.skill.Firemaking);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-
-		// ## ALT MAGIC ##
-		var selectMagicRef = selectMagic;
-		window.selectMagic = function(...args) {
-			selectMagicRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Magic);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var selectItemForMagicRef = selectItemForMagic;
-		window.selectItemForMagic = function(...args) {
-			selectItemForMagicRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Magic);
-			} catch (e) {
-				console.error(e);
-			}
-		};
-		var castMagicRef = castMagic;
-		window.castMagic = function(...args) {
-			castMagicRef(...args);
-			try {
-				timeRemaining(CONSTANTS.skill.Magic);
-				taskComplete(CONSTANTS.skill.Magic);
-			} catch (e) {
-				console.error(e);
-			}
-		};
+			// selects
+			shorts.forEach(short => {
+				selectRef[short] = window["select" + short];
+				window["select" + short] = function(...args) {
+					selectRef[short](...args);
+					try {
+						timeRemaining(CONSTANTS.skill[long]);
+					} catch (e) {
+						console.error(e);
+					}
+				};
+			});
+			// start
+			startRef[long] = window[start];
+			window[start] = function(...args) {
+				startRef[long](...args);
+				try {
+					timeRemaining(CONSTANTS.skill[long]);
+					taskComplete(CONSTANTS.skill[long]);
+				} catch (e) {
+					console.error(e);
+				}
+			};
+		});
 	}
 
 	function loadScript() {
