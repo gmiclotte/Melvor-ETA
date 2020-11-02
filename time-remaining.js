@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name         Melvor TimeRemaining
-// @namespace    http://tampermonkey.net/
-// @version      0.6.2.1
-// @description  Shows time remaining for completing a task with your current resources. Takes into account Mastery Levels and other bonuses.
-// @author       Breindahl#2660
-// @match        https://melvoridle.com/*
-// @match        https://www.melvoridle.com/*
-// @match        https://melvoridle.com/*
-// @match        https://test.melvoridle.com/*
-// @grant        none
+// @name		 Melvor TimeRemaining
+// @namespace	http://tampermonkey.net/
+// @version		0.6.2.1
+// @description	Shows time remaining for completing a task with your current resources. Takes into account Mastery Levels and other bonuses.
+// @author		Breindahl#2660
+// @match		https://melvoridle.com/*
+// @match		https://www.melvoridle.com/*
+// @match		https://melvoridle.com/*
+// @match		https://test.melvoridle.com/*
+// @grant		none
 // ==/UserScript==
 /* jshint esversion: 9 */
 
@@ -53,29 +53,29 @@
 		$("#magic-item-have-and-div").after(TempContainer[0] + "timeLeftMagic" + TempContainer[1]);
 
 		// Mastery Pool progress
-        for(let id in SKILLS) {
-            if(SKILLS[id].hasMastery) {
-                let bar = $(`#mastery-pool-progress-${id}`)[0];
-                $(bar).after(`<div id="mastery-pool-progress-end-${id}" class="progress-bar bg-warning" role="progressbar" style="width: 0%; background-color: #e5ae679c !important;"></div>`);
-            }
-        }
+		for(let id in SKILLS) {
+			if(SKILLS[id].hasMastery) {
+				let bar = $(`#mastery-pool-progress-${id}`)[0];
+				$(bar).after(`<div id="mastery-pool-progress-end-${id}" class="progress-bar bg-warning" role="progressbar" style="width: 0%; background-color: #e5ae679c !important;"></div>`);
+			}
+		}
 
 		// Mastery Progress bars
-        for(let id in SKILLS) {
-            if(SKILLS[id].hasMastery) {
-                let name = skillName[id].toLowerCase();
+		for(let id in SKILLS) {
+			if(SKILLS[id].hasMastery) {
+				let name = skillName[id].toLowerCase();
 				let bar = $(`#${name}-mastery-progress`)[0];
-                $(bar).after(`<div id="${id}-mastery-pool-progress-end" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
-            }
-        }
+				$(bar).after(`<div id="${id}-mastery-pool-progress-end" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
+			}
+		}
 
 		// Mastery Skill progress
-        for(let id in SKILLS) {
-            if(SKILLS[id].hasMastery) {
-                let bar = $(`#skill-progress-bar-${id}`)[0];
-                $(bar).after(`<div id="skill-progress-bar-end-${id}" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
-            }
-        }
+		for(let id in SKILLS) {
+			if(SKILLS[id].hasMastery) {
+				let bar = $(`#skill-progress-bar-${id}`)[0];
+				$(bar).after(`<div id="skill-progress-bar-end-${id}" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
+			}
+		}
 
 		// Function to get unformatted number for Qty
 		function getQtyOfItem(itemID) {
@@ -226,7 +226,7 @@
 					masteryLimLevel = [20,40,60,80,99,Infinity]; // Smithing Mastery Limits
 					chanceToKeep = [0,0.05,0.10,0.15,0.20,0.30]; //Smithing Mastery bonus percentages
 					if(petUnlocked[5]) chanceToKeep = chanceToKeep.map(n => n + PETS[5].chance/100); // Add Pet Bonus
-                    break;
+					break;
 
 				case CONSTANTS.skill.Fletching:
 					item = fletchingItems[selectedFletch].itemID;
@@ -242,7 +242,7 @@
 						if (window.selectedFletchLog === undefined) {window.selectedFletchLog = 0;}
 						skillReq = [skillReq[window.selectedFletchLog]];
 					}
-                    break;
+					break;
 
 				case CONSTANTS.skill.Runecrafting:
 					item = runecraftingItems[selectedRunecraft].itemID;
@@ -257,7 +257,7 @@
 					if (equippedItems.includes(CONSTANTS.item.Runecrafting_Skillcape) || equippedItems.includes(CONSTANTS.item.Max_Skillcape) || equippedItems.includes(CONSTANTS.item.Cape_of_Completion)) chanceToKeep[0] += 0.35;
 					if (petUnlocked[10]) chanceToKeep[0] += PETS[10].chance/100;
 					chanceToKeep[1] = chanceToKeep[0];
-                    break;
+					break;
 
 				case CONSTANTS.skill.Crafting:
 					item = craftingItems[selectedCraft].itemID;
@@ -269,7 +269,7 @@
 					for (let i of items[item].craftReq) {
 						skillReq.push(i);
 					}
-                    break;
+					break;
 
 				case CONSTANTS.skill.Herblore:
 					item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
@@ -279,7 +279,7 @@
 					for (let i of items[item].herbloreReq) {
 						skillReq.push(i);
 					}
-                    break;
+					break;
 
 				case CONSTANTS.skill.Cooking:
 					item = selectedFood;
@@ -293,7 +293,7 @@
 					masteryLimLevel = [99,Infinity]; //Cooking has no Mastery bonus
 					chanceToKeep = [0,0]; //Thus no chance to keep
 					item = items[item].cookedItemID;
-                    break;
+					break;
 
 				case CONSTANTS.skill.Firemaking:
 					item = selectedLog;
@@ -302,7 +302,7 @@
 					if (godUpgrade[3]) skillInterval *= 0.8;
 					skillReq = [{id: item, qty: 1}];
 					chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
-                    break;
+					break;
 
 				case CONSTANTS.skill.Magic:
 					skillInterval = 2000;
@@ -349,7 +349,7 @@
 					}
 					masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
 					chanceToKeep = [0]; //Thus no chance to keep
-                    break;
+					break;
 			}
 
 			// Configure initial mastery values for all skills with masteries
@@ -420,13 +420,13 @@
 				switch (skillID) {
 					case CONSTANTS.skill.Fletching:
 						if (currentPoolMasteryXP >= poolLim[3]) adjustedInterval -= 200;
-                        break;
+						break;
 
 					case CONSTANTS.skill.Firemaking: {
 						if (currentPoolMasteryXP >= poolLim[1]) adjustedInterval *= 0.9;
 						let decreasedBurnInterval = 1 - convertXPToLvl(currentMasteryXP) * 0.001;
 						adjustedInterval *= decreasedBurnInterval;
-                        break;
+						break;
 					}
 				}
 
@@ -442,19 +442,19 @@
 					case CONSTANTS.skill.Smithing:
 						if (currentPoolMasteryXP >= poolLim[1]) adjustedPreservation += 5;
 						if (currentPoolMasteryXP >= poolLim[2]) adjustedPreservation += 5;
-                        break;
+						break;
 
 					case CONSTANTS.skill.Runecrafting:
 						if (currentPoolMasteryXP >= poolLim[2]) adjustedPreservation += 10;
-                        break;
+						break;
 
 					case CONSTANTS.skill.Herblore:
 						if (currentPoolMasteryXP >= poolLim[2]) adjustedPreservation += 5;
-                        break;
+						break;
 
 					case CONSTANTS.skill.Cooking:
 						if (currentPoolMasteryXP >= poolLim[2]) adjustedPreservation += 10;
-                        break;
+						break;
 				}
 
 				return adjustedPreservation / 100;
@@ -468,7 +468,7 @@
 				switch (skillID) {
 					case CONSTANTS.skill.Runecrafting:
 						if (currentPoolMasteryXP >= poolLim[1] && items[item].type === "Rune") xpMultiplier += 1.5;
-                        break;
+						break;
 
 					case CONSTANTS.skill.Cooking: {
 						let burnChance = calcBurnChance(currentMasteryXP);
@@ -719,11 +719,11 @@
 				timeLeftElement._tippy.setContent(tooltip);
 
 				let poolProgress = (results.finalPoolPercentage > 100) ? 100 - ((initialTotalMasteryPoolXP / masteryPoolMaxXP)*100) : (results.finalPoolPercentage - ((initialTotalMasteryPoolXP / masteryPoolMaxXP)*100)).toFixed(4);
-	            $(`#mastery-pool-progress-end-${skillID}`).css("width", poolProgress + "%");
+				$(`#mastery-pool-progress-end-${skillID}`).css("width", poolProgress + "%");
 				let masteryProgress = getPercentageInLevel(initialTotalMasteryXP,results.finalMasteryXP,"mastery",true);
-	            $(`#${skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
+				$(`#${skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
 				let skillProgress = getPercentageInLevel(initialSkillXP,results.finalSkillXP,"skill",true);
-	            $(`#skill-progress-bar-end-${skillID}`).css("width", skillProgress + "%");
+				$(`#skill-progress-bar-end-${skillID}`).css("width", skillProgress + "%");
 			}
 		}
 
