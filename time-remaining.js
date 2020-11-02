@@ -805,7 +805,7 @@ window.timeRemainingSettings = {
 			["Herblore", ["Herblore"]],
 			["Cooking", ["Food"]],
 			["Firemaking", ["Log"], "burnLog"],
-			["Magic", ["Magic", "ItemForMagic"], "castMagic"],
+			// ["Magic", ["Magic", "ItemForMagic"], "castMagic"],
 		].forEach(skill => {
 			let long = skill[0];
 			let shorts = skill[1];
