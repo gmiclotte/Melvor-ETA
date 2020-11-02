@@ -524,41 +524,60 @@ window.timeRemainingSettings = {
 
 			// Calculate mastery xp based on unlocked bonuses
 			function calcMasteryXpToAdd(timePerAction, currentTotalSkillXP, currentMasteryXP, currentPoolMasteryXP, currentTotalMasteryLevelForSkill) {
-
 				let xpModifier = 1;
-				let xpToAdd = (((calcTotalUnlockedItems(currentTotalSkillXP) * currentTotalMasteryLevelForSkill) / getTotalMasteryLevelForSkill(skillID) + convertXPToLvl(currentMasteryXP) * (getTotalItemsInSkill(skillID) / 10)) * (timePerAction / 1000)) / 2; // General Mastery XP formula
-				if (currentPoolMasteryXP >= poolLim[0]) xpModifier += 0.05;
-				// If current skill is Firemaking, we need to apply mastery progression from actions and use updated currentPoolMasteryXP values
-				if (skillID == CONSTANTS.skill.Firemaking) {
-					if (currentPoolMasteryXP >= poolLim[3]) xpModifier += 0.05;
+				// General Mastery XP formula
+				let xpToAdd = (((calcTotalUnlockedItems(currentTotalSkillXP) * currentTotalMasteryLevelForSkill) / getTotalMasteryLevelForSkill(skillID) + convertXPToLvl(currentMasteryXP) * (getTotalItemsInSkill(skillID) / 10)) * (timePerAction / 1000)) / 2;
+				// Skill specific mastery pool modifier
+				if (currentPoolMasteryXP >= poolLim[0]) {
+					xpModifier += 0.05;
+				}
+				// Firemaking pool and log modifiers
+				if (skillID === CONSTANTS.skill.Firemaking) {
+					// If current skill is Firemaking, we need to apply mastery progression from actions and use updated currentPoolMasteryXP values
+					if (currentPoolMasteryXP >= poolLim[3]) {
+						xpModifier += 0.05;
+					}
 					for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
 						// The logs you are not burning
 						if (masteryID != i) {
-							if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) xpModifier += 0.0025;
+							if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) {
+								xpModifier += 0.0025;
+							}
 						}
 					}
 					// The log you are burning
-					if (convertXPToLvl(currentMasteryXP) >= 99) xpModifier += 0.0025;
-				}
-				// For all other skills, you use the game function to grab your FM mastery progression
-				else {
-					if (getMasteryPoolProgress(CONSTANTS.skill.Firemaking) >= poolLim[3]) xpModifier += 0.05;
+					if (convertXPToLvl(currentMasteryXP) >= 99) {
+						xpModifier += 0.0025;
+					}
+				} else {
+					// For all other skills, you use the game function to grab your FM mastery progression
+					if (getMasteryPoolProgress(CONSTANTS.skill.Firemaking) >= masteryCheckpoints[3]) {
+						xpModifier += 0.05;
+					}
 					for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
-						if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) xpModifier += 0.0025;
+						if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) {
+							xpModifier += 0.0025;
+						}
 					}
 				}
-
-				if (petUnlocked[21]) xpModifier += 0.03;
-				if (equippedItems.includes(CONSTANTS.item.Ancient_Ring_Of_Mastery)) xpModifier += items[CONSTANTS.item.Ancient_Ring_Of_Mastery].bonusMasteryXP;
+				// Ty modifier
+				if (petUnlocked[21]) {
+					xpModifier += 0.03;
+				}
+				// AROM modifier
+				if (equippedItems.includes(CONSTANTS.item.Ancient_Ring_Of_Mastery)) {
+					xpModifier += items[CONSTANTS.item.Ancient_Ring_Of_Mastery].bonusMasteryXP;
+				}
+				// Combine base and modifiers
 				xpToAdd *= xpModifier;
-				if (xpToAdd < 1) xpToAdd = 1;
-
-				// BurnChance affects mastery XP
-				if (skillID == CONSTANTS.skill.Cooking) {
+				if (xpToAdd < 1) {
+					xpToAdd = 1;
+				}
+				// BurnChance affects average mastery XP
+				if (skillID === CONSTANTS.skill.Cooking) {
 					let burnChance = calcBurnChance(currentMasteryXP);
 					xpToAdd *= (1 - burnChance);
 				}
-
 				return xpToAdd;
 			}
 
@@ -740,7 +759,7 @@ window.timeRemainingSettings = {
 							+ "\r\nMXP/h: " + formatNumber(Math.floor(results.masteryXPh))
 							+ "\r\nActions: " + formatNumber(results.actions)
 							+ "\r\nTime: " + secondsToHms(timeLeft)
-							+ "\r\nFinish: "	+ DateFormat(now, finishedTime);
+							+ "\r\nFinish: " + DateFormat(now, finishedTime);
 					} else {
 						timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
 					}
