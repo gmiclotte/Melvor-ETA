@@ -641,7 +641,15 @@
 					// Level up mastery if hitting Mastery limit
 					if ( masteryXPActions == expectedActions ) currentTotalMasteryLevelForSkill++;
 				}
-				return {"timeLeft" : Math.round(sumTotalTime), "finalSkillXP" : currentTotalSkillXP, "finalMasteryXP" : currentTotalMasteryXP, "finalPoolPercentage" : Math.min((currentTotalPoolXP/masteryPoolMaxXP)*100,100).toFixed(2), "maxPoolTime" : maxPoolTime, "maxMasteryTime" : maxMasteryTime, "maxSkillTime" : maxSkillTime};
+				return {
+					"timeLeft" : Math.round(sumTotalTime),
+					"finalSkillXP" : currentTotalSkillXP,
+					"finalMasteryXP" : currentTotalMasteryXP,
+					"finalPoolPercentage" : Math.min((currentTotalPoolXP/masteryPoolMaxXP)*100,100).toFixed(2),
+					"maxPoolTime" : maxPoolTime,
+					"maxMasteryTime" : maxMasteryTime,
+					"maxSkillTime" : maxSkillTime,
+				};
 			}
 
 			var results = calcExpectedTime(recordCraft);
