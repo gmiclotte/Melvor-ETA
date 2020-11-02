@@ -214,7 +214,7 @@ window.timeRemainingSettings = {
 		}
 
 		// Main function
-		function timeRemaining(skillID){
+		function timeRemaining(skillID) {
 			// Reset variables
 			var masteryID = 0;
 			var skillInterval = 0;
@@ -232,8 +232,6 @@ window.timeRemainingSettings = {
 			var skillReq = []; // Needed items for craft and their quantities
 			var itemCraft = []; // Amount of items craftable for each resource requirement
 			var recordCraft = Infinity; // Amount of craftable items for limiting resource
-			let selectedItem; // aux variable to store selectedLog etc
-			var masteryXPh = 0; // current mastery xp/h
 
 			// Generate default values for script
 			var timeLeftID = "timeLeft".concat(skillName[skillID]); // Field for generating timeLeft HTML
@@ -250,7 +248,6 @@ window.timeRemainingSettings = {
 			// Set current skill and pull matching variables from game with script
 			switch (skillID) {
 				case CONSTANTS.skill.Smithing:
-					selectedItem = selectedSmith;
 					item = smithingItems[selectedSmith].itemID;
 					itemXP = items[item].smithingXP;
 					skillInterval = 2000;
@@ -264,7 +261,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Fletching:
-					selectedItem = selectedFletch;
 					item = fletchingItems[selectedFletch].itemID;
 					itemXP = items[item].fletchingXP;
 					skillInterval = 2000;
@@ -281,7 +277,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Runecrafting:
-					selectedItem = selectedRunecraft;
 					item = runecraftingItems[selectedRunecraft].itemID;
 					itemXP = items[item].runecraftingXP;
 					skillInterval = 2000;
@@ -297,7 +292,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Crafting:
-					selectedItem = selectedCraft;
 					item = craftingItems[selectedCraft].itemID;
 					itemXP = items[item].craftingXP;
 					skillInterval = 3000;
@@ -310,7 +304,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Herblore:
-					selectedItem = selectedHerblore;
 					item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
 					itemXP = herbloreItemData[selectedHerblore].herbloreXP;
 					skillInterval = 2000;
@@ -321,7 +314,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Cooking:
-					selectedItem = selectedFood;
 					item = selectedFood;
 					itemXP = items[item].cookingXP;
 					if (currentCookingFire > 0) {
@@ -336,7 +328,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Firemaking:
-					selectedItem = selectedLog;
 					item = selectedLog;
 					itemXP = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
 					skillInterval = logsData[selectedLog].interval;
@@ -346,7 +337,6 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Magic:
-					selectedItem = selectedAltMagic;
 					skillInterval = 2000;
 					//Find need runes for spell
 					if (ALTMAGIC[selectedAltMagic].runesRequiredAlt !== undefined && useCombinationRunes) {
@@ -401,7 +391,6 @@ window.timeRemainingSettings = {
 				initialTotalMasteryLevelForSkill = getCurrentTotalMasteryLevelForSkill(skillID);
 				masteryID = items[item].masteryID[1];
 				initialTotalMasteryXP = MASTERY[skillID].xp[masteryID];
-				masteryXPh = getMasteryXpToAdd(skillID, selectedItem, skillInterval) / skillInterval * 1000 * 3600;
 			}
 
 			// Apply itemXP Bonuses from gear and pets
@@ -614,7 +603,15 @@ window.timeRemainingSettings = {
 				let currentTotalSkillXP = initialSkillXP;
 				let currentTotalPoolXP = initialTotalMasteryPoolXP;
 				let currentTotalMasteryLevelForSkill = initialTotalMasteryLevelForSkill;
-				let xph = skillXPAdjustment(initialTotalMasteryPoolXP, initialTotalMasteryXP) / intervalAdjustment(initialTotalMasteryPoolXP, initialTotalMasteryXP) * 1000 * 3600;
+				// compute current xp/h and mxp/h
+				let initialInterval = intervalAdjustment(initialTotalMasteryPoolXP, initialTotalMasteryXP);
+				let xph = skillXPAdjustment(initialTotalMasteryPoolXP, initialTotalMasteryXP) / initialInterval * 1000 * 3600;
+				// compute current mastery xp / h using the getMasteryXpToAdd from the game
+				let masteryXPh = getMasteryXpToAdd(skillID, masteryID, initialInterval) / initialInterval * 1000 * 3600;
+				// alternative: compute through the calcMasteryXpToAdd method from this script, they should be the same !
+				// let masteryXPh = calcMasteryXpToAdd(initialInterval, currentTotalSkillXP, currentTotalMasteryXP, currentTotalPoolXP, currentTotalMasteryLevelForSkill) / initialInterval * 1000 * 3600;
+
+				// counter for estimated number of actions
 				let actions = 0;
 
 				while (resources > 0) {
