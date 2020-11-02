@@ -597,15 +597,6 @@ window.timeRemainingSettings = {
 				return burnChance;
 			}
 
-			// adjusting totalChanceToUse base on Rhaelyx charges and number of actions
-			function adjustTotalChanceToUseRhaelyx(totalChanceToUse, expectedActions, resources) {
-				if (chargeUses >= expectedActions || chargeUses >= resources / (totalChanceToUse - RhaelyxChance)) {
-					return totalChanceToUse - RhaelyxChance; //if we have excess uses, then we simply use better chance to keep and move on as usual
-				} else {
-					return resources / (chargeUses / (totalChanceToUse - RhaelyxChance) + (resources - chargeUses) / totalChanceToUse); //the denominator is the "real" expectedXP with Rhaelyx, so the "real" chanceToKeep is essentially found through resources/(resources/chanceToKeep)
-				}
-			}
-
 			// Calculates expected time, taking into account Mastery Level advancements during the craft
 			function calcExpectedTime(resources){
 				let sumTotalTime = 0;
@@ -651,7 +642,12 @@ window.timeRemainingSettings = {
 					let masteryXPActions = masteryXPToLimit / currentMasteryXP;
 					let skillXPActions = skillXPToLimit / currentSkillXP;
 					let poolXPActions = poolXPToLimit / currentPoolXP;
-					let resourceActions = Math.round(resources / adjustTotalChanceToUseRhaelyx(totalChanceToUse, resources, resources));
+
+					// estimate amount of actions
+					let resWithCharge = chargeUses;
+					let resourceActions = chargeUses / (totalChanceToUse - RhaelyxChance);
+					let resWithoutCharge = Math.max(0, resources - chargeUses);
+					resourceActions += resWithoutCharge / totalChanceToUse;
 
 					// Minimum actions based on limits
 					let expectedActions = Math.ceil(Math.min(masteryXPActions, skillXPActions, poolXPActions, resourceActions));
@@ -660,7 +656,14 @@ window.timeRemainingSettings = {
 					if (expectedActions == resourceActions) {
 						resources = 0; // No more limits
 					} else {
-						resources -= Math.round(expectedActions*adjustTotalChanceToUseRhaelyx(totalChanceToUse, expectedActions, resources));
+						let resUsed = 0;
+						if (expectedActions < chargeUses) {
+							resUsed = expectedActions * (totalChanceToUse - RhaelyxChance);
+						} else {
+							resUsed = chargeUses * (totalChanceToUse - RhaelyxChance);
+							resUsed += (expectedActions - chargeUses) * totalChanceToUse;
+						}
+						resources = Math.round(resources - resUsed);
 					}
 
 					// time for current loop
