@@ -22,6 +22,8 @@ window.timeRemainingSettings = {
 	IS_12H_CLOCK: false,
 	// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
 	IS_SHORT_CLOCK: false,
+	// true for alternative main display with xp/h, mastery xp/h and action count
+	SHOW_XP_RATE: false,
 };
 
 (function () {
@@ -230,6 +232,8 @@ window.timeRemainingSettings = {
 			var skillReq = []; // Needed items for craft and their quantities
 			var itemCraft = []; // Amount of items craftable for each resource requirement
 			var recordCraft = Infinity; // Amount of craftable items for limiting resource
+			let selectedItem; // aux variable to store selectedLog etc
+			var masteryXPh = 0; // current mastery xp/h
 
 			// Generate default values for script
 			var timeLeftID = "timeLeft".concat(skillName[skillID]); // Field for generating timeLeft HTML
@@ -246,6 +250,7 @@ window.timeRemainingSettings = {
 			// Set current skill and pull matching variables from game with script
 			switch (skillID) {
 				case CONSTANTS.skill.Smithing:
+					selectedItem = selectedSmith;
 					item = smithingItems[selectedSmith].itemID;
 					itemXP = items[item].smithingXP;
 					skillInterval = 2000;
@@ -259,6 +264,7 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Fletching:
+					selectedItem = selectedFletch;
 					item = fletchingItems[selectedFletch].itemID;
 					itemXP = items[item].fletchingXP;
 					skillInterval = 2000;
@@ -275,6 +281,7 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Runecrafting:
+					selectedItem = selectedRunecraft;
 					item = runecraftingItems[selectedRunecraft].itemID;
 					itemXP = items[item].runecraftingXP;
 					skillInterval = 2000;
@@ -290,6 +297,7 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Crafting:
+					selectedItem = selectedCraft;
 					item = craftingItems[selectedCraft].itemID;
 					itemXP = items[item].craftingXP;
 					skillInterval = 3000;
@@ -302,6 +310,7 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Herblore:
+					selectedItem = selectedHerblore;
 					item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
 					itemXP = herbloreItemData[selectedHerblore].herbloreXP;
 					skillInterval = 2000;
@@ -312,6 +321,7 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Cooking:
+					selectedItem = selectedFood;
 					item = selectedFood;
 					itemXP = items[item].cookingXP;
 					if (currentCookingFire > 0) {
@@ -326,6 +336,7 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Firemaking:
+					selectedItem = selectedLog;
 					item = selectedLog;
 					itemXP = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
 					skillInterval = logsData[selectedLog].interval;
@@ -335,29 +346,30 @@ window.timeRemainingSettings = {
 					break;
 
 				case CONSTANTS.skill.Magic:
+					selectedItem = selectedAltMagic;
 					skillInterval = 2000;
 					//Find need runes for spell
-						if (ALTMAGIC[selectedAltMagic].runesRequiredAlt !== undefined && useCombinationRunes) {
-							for (let i of ALTMAGIC[selectedAltMagic].runesRequiredAlt) {
-								skillReq.push({...i});
-							}
+					if (ALTMAGIC[selectedAltMagic].runesRequiredAlt !== undefined && useCombinationRunes) {
+						for (let i of ALTMAGIC[selectedAltMagic].runesRequiredAlt) {
+							skillReq.push({...i});
 						}
-						else {
-							for (let i of ALTMAGIC[selectedAltMagic].runesRequired) {
-								skillReq.push({...i});
-							}
+					}
+					else {
+						for (let i of ALTMAGIC[selectedAltMagic].runesRequired) {
+							skillReq.push({...i});
 						}
+					}
 
-						// Get Rune discount
-						for (let i = 0; i < skillReq.length; i++) {
-							if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune !== undefined) {
-								if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune.includes(skillReq[i].id)) {
-									let capeMultiplier = 1;
-									if (equippedItems.includes(CONSTANTS.item.Magic_Skillcape) || equippedItems.includes(CONSTANTS.item.Max_Skillcape) || equippedItems.includes(CONSTANTS.item.Cape_of_Completion)) capeMultiplier = 2; // Add cape multiplier
-									skillReq[i].qty -= items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRuneQty * capeMultiplier;
-								}
+					// Get Rune discount
+					for (let i = 0; i < skillReq.length; i++) {
+						if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune !== undefined) {
+							if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune.includes(skillReq[i].id)) {
+								let capeMultiplier = 1;
+								if (equippedItems.includes(CONSTANTS.item.Magic_Skillcape) || equippedItems.includes(CONSTANTS.item.Max_Skillcape) || equippedItems.includes(CONSTANTS.item.Cape_of_Completion)) capeMultiplier = 2; // Add cape multiplier
+								skillReq[i].qty -= items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRuneQty * capeMultiplier;
 							}
 						}
+					}
 					skillReq = skillReq.filter(item => item.qty > 0); // Remove all runes with 0 cost
 
 					//Other items
@@ -389,6 +401,7 @@ window.timeRemainingSettings = {
 				initialTotalMasteryLevelForSkill = getCurrentTotalMasteryLevelForSkill(skillID);
 				masteryID = items[item].masteryID[1];
 				initialTotalMasteryXP = MASTERY[skillID].xp[masteryID];
+				masteryXPh = getMasteryXpToAdd(skillID, selectedItem, skillInterval) / skillInterval * 1000 * 3600;
 			}
 
 			// Apply itemXP Bonuses from gear and pets
@@ -396,15 +409,15 @@ window.timeRemainingSettings = {
 
 			// Populate masteryLim from masteryLimLevel
 			for (let i = 0; i < masteryLimLevel.length; i++) {
-					masteryLim[i] = convertLvlToXP(masteryLimLevel[i]);
+				masteryLim[i] = convertLvlToXP(masteryLimLevel[i]);
 			}
 			// Populate skillLim from skillLimLevel
 			for (let i = 0; i < skillLimLevel.length; i++) {
-					skillLim[i] = convertLvlToXP(skillLimLevel[i]);
+				skillLim[i] = convertLvlToXP(skillLimLevel[i]);
 			}
 			// Populate poolLim from masteryCheckpoints
 			for (let i = 0; i < poolLimCheckpoints.length; i++) {
-					poolLim[i] = masteryPoolMaxXP * poolLimCheckpoints[i] / 100;
+				poolLim[i] = masteryPoolMaxXP * poolLimCheckpoints[i] / 100;
 			}
 
 			// Check for Crown of Rhaelyx
@@ -610,7 +623,9 @@ window.timeRemainingSettings = {
 				let currentTotalSkillXP = initialSkillXP;
 				let currentTotalPoolXP = initialTotalMasteryPoolXP;
 				let currentTotalMasteryLevelForSkill = initialTotalMasteryLevelForSkill;
-				
+				let xph = skillXPAdjustment(initialTotalMasteryPoolXP, initialTotalMasteryXP) / intervalAdjustment(initialTotalMasteryPoolXP, initialTotalMasteryXP) * 1000 * 3600;
+				let actions = 0;
+
 				while (resources > 0) {
 					// Adjustments
 					let currentPreservationAdjustment = preservationAdjustment(currentTotalPoolXP);
@@ -677,15 +692,21 @@ window.timeRemainingSettings = {
 
 					// Level up mastery if hitting Mastery limit
 					if ( masteryXPActions == expectedActions ) currentTotalMasteryLevelForSkill++;
+
+					// estimate total remaining actions
+					actions += expectedActions;
 				}
 				return {
 					"timeLeft" : Math.round(sumTotalTime),
+					"actions": actions,
 					"finalSkillXP" : currentTotalSkillXP,
 					"finalMasteryXP" : currentTotalMasteryXP,
-					"finalPoolPercentage" : Math.min((currentTotalPoolXP/masteryPoolMaxXP)*100,100).toFixed(2),
+					"finalPoolPercentage" : Math.min((currentTotalPoolXP/masteryPoolMaxXP) * 100, 100).toFixed(2),
 					"maxPoolTime" : maxPoolTime,
 					"maxMasteryTime" : maxMasteryTime,
 					"maxSkillTime" : maxSkillTime,
+					"masteryXPh": masteryXPh,
+					"xph" : xph,
 				};
 			}
 
@@ -713,11 +734,19 @@ window.timeRemainingSettings = {
 			let timeLeftElement = document.getElementById(timeLeftID);
 			if(timeLeftElement !== null) {
 				if (timeLeft !== 0) {
-					let finishedTime = AddSecondsToDate(now,timeLeft);
-					timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now,finishedTime);
+					let finishedTime = AddSecondsToDate(now, timeLeft);
+					if (timeRemainingSettings.SHOW_XP_RATE) {
+						timeLeftElement.textContent = "XP/h: " + formatNumber(Math.floor(results.xph))
+							+ "\r\nMXP/h: " + formatNumber(Math.floor(results.masteryXPh))
+							+ "\r\nActions: " + formatNumber(results.actions)
+							+ "\r\nTime: " + secondsToHms(timeLeft)
+							+ "\r\nFinish: "	+ DateFormat(now, finishedTime);
+					} else {
+						timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
+					}
 					timeLeftElement.style.display = "block";
 				} else {
-				// empty and reset if no time
+					// empty and reset if no time
 					timeLeftElement.style.display = "none";
 				}
 			}
