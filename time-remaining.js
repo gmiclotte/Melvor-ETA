@@ -16,6 +16,12 @@
 // Later versions might break parts of this script
 // Big thanks to Xhaf#6478 and Visua#9999 for helping with parts of the code and troubleshooting
 
+// settings
+// true for 12h clock (AM/PM), false for 24h clock
+IS_12H_CLOCK = false;
+// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
+IS_SHORT_CLOCK = false;
+
 
 (function () {
 	function injectScript(main) {
@@ -87,18 +93,48 @@
 			return 0;
 		}
 
+		let appendName = (t, name, isShortClock) => {
+			if (t === 0) {
+				return "";
+			}
+			if (isShortClock) {
+				return t + name[0];
+			}
+			let result = t + " " + name;
+			if (t === 1) {
+				return result;
+			}
+			return result + "s";
+		}
+
 		// Convert seconds to hours/minutes/seconds and format them
-		function secondsToHms(d) {
+		function secondsToHms(d, isShortClock = IS_SHORT_CLOCK) {
 			d = Number(d);
+			// split seconds in hours, minutes and seconds
 			let h = Math.floor(d / 3600);
 			let m = Math.floor(d % 3600 / 60);
 			let s = Math.floor(d % 3600 % 60);
-			let sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
-			let mDisplay = m > 0 ? m + (m == 1 ? " minute" : " minutes") : "";
-			let mDisplayComma = m > 0 && s > 0 ? " and " : "";
-			let hDisplay = h > 0 ? h + (h == 1 ? " hour" : " hours") : "";
-			let hDisplayComma = h > 0 ? ((m === 0 && s > 0)||(s === 0 && m > 0) ? " and " : ((s > 0 || m > 0) ? ", " : "")) : "";
-			return hDisplay + hDisplayComma + mDisplay + mDisplayComma + sDisplay;
+			// no comma in short form
+			// ` and ` if hours and minutes or hours and seconds
+			// `, ` if hours and minutes and seconds
+			let hDisplayComma = " ";
+			if (!isShortClock && h > 0) {
+				if ((m === 0 && s > 0) || (s === 0 && m > 0)) {
+					hDisplayComma = " and ";
+				} else if (s > 0 && m > 0) {
+					hDisplayComma = ", ";
+				}
+			}
+			// no comma in short form
+			// ` and ` if minutes and seconds
+			let mDisplayComma = " ";
+			if (!isShortClock && m > 0 && s > 0) {
+				mDisplayComma = " and ";
+			}
+			// append h/hour/hours etc depending on isShortClock, then concat and return
+			return appendName(h, "hour", isShortClock) + hDisplayComma
+				+ appendName(m, "minute", isShortClock) + mDisplayComma
+				+ appendName(s, "second", isShortClock);
 		}
 
 		// Add seconds to date
@@ -112,7 +148,7 @@
 		}
 
 		// Format date 24 hour clock
-		function DateFormat(now, then, is12h = false){
+		function DateFormat(now, then, is12h = IS_12H_CLOCK){
 			let days = daysBetween(now, then);
 			days = (days == 0) ? `` : (days == 1) ? ` tomorrow` : ` + ${days} days`;
 			let hours = then.getHours();
