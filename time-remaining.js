@@ -828,6 +828,7 @@ window.timeRemainingSettings = {
 		var selectRef = {};
 		var startRef = {};
 		[	// skill name, select names, < start name >
+			// start name is only required if the start method is not of the form `start${skill name}`
 			["Smithing", ["Smith"]],
 			["Fletching", ["Fletch"]],
 			["Runecrafting", ["Runecraft"]],
@@ -837,31 +838,35 @@ window.timeRemainingSettings = {
 			["Firemaking", ["Log"], "burnLog"],
 			["Magic", ["Magic", "ItemForMagic"], "castMagic"],
 		].forEach(skill => {
-			let long = skill[0];
-			let shorts = skill[1];
-			let start = "start" + long;
-			if (skill.length > 2) {
-				start = skill[2];
-			}
-			// selects
-			shorts.forEach(short => {
-				selectRef[short] = window["select" + short];
-				window["select" + short] = function(...args) {
-					selectRef[short](...args);
+			let skillName = skill[0];
+			// wrap the select methods
+			let selectNames = skill[1];
+			selectNames.forEach(entry => {
+				let selectName = "select" + entry;
+				// original methods are kept in the selectRef object
+				selectRef[selectName] = window[selectName];
+				window[selectName] = function(...args) {
+					selectRef[selectName](...args);
 					try {
-						timeRemaining(CONSTANTS.skill[long]);
+						timeRemaining(CONSTANTS.skill[skillName]);
 					} catch (e) {
 						console.error(e);
 					}
 				};
 			});
-			// start
-			startRef[long] = window[start];
-			window[start] = function(...args) {
-				startRef[long](...args);
+			// wrap the start methods
+			let startName = "start" + skillName;
+			if (skill.length > 2) {
+				// override default start name if required
+				startName = skill[2];
+			}
+			// original methods are kept in the startRef object
+			startRef[skillName] = window[startName];
+			window[startName] = function(...args) {
+				startRef[skillName](...args);
 				try {
-					timeRemaining(CONSTANTS.skill[long]);
-					taskComplete(CONSTANTS.skill[long]);
+					timeRemaining(CONSTANTS.skill[skillName]);
+					taskComplete(CONSTANTS.skill[skillName]);
 				} catch (e) {
 					console.error(e);
 				}
