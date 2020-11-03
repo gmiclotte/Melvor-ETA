@@ -662,9 +662,11 @@ window.timeRemainingSettings = {
 					let poolXPActions = poolXPToLimit / currentPoolXP;
 
 					// estimate amount of actions
-					let resWithCharge = chargeUses;
-					let resourceActions = chargeUses / (totalChanceToUse - RhaelyxChance);
+					// number of actions with rhaelyx charges
+					let resourceActions = Math.min(chargeUses, resources / (totalChanceToUse - RhaelyxChance));
+					// remaining resources
 					let resWithoutCharge = Math.max(0, resources - chargeUses);
+					// add number of actions without rhaelyx charges
 					resourceActions += resWithoutCharge / totalChanceToUse;
 
 					// Minimum actions based on limits
@@ -676,9 +678,12 @@ window.timeRemainingSettings = {
 					} else {
 						let resUsed = 0;
 						if (expectedActions < chargeUses) {
+							// won't run out of charges yet
 							resUsed = expectedActions * (totalChanceToUse - RhaelyxChance);
 						} else {
+							// first use charges
 							resUsed = chargeUses * (totalChanceToUse - RhaelyxChance);
+							// remaining actions are without charges
 							resUsed += (expectedActions - chargeUses) * totalChanceToUse;
 						}
 						resources = Math.round(resources - resUsed);
