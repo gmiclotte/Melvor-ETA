@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor TimeRemaining
 // @namespace	http://tampermonkey.net/
-// @version		0.6.2.1-1
+// @version		0.6.2.2-1
 // @description	Shows time remaining for completing a task with your current resources. Takes into account Mastery Levels and other bonuses.
 // @author		Breindahl#2660
 // @match		https://melvoridle.com/*
@@ -147,6 +147,7 @@ window.timeRemainingSettings = {
 			return new Date(date.getTime() + seconds*1000);
 		}
 
+		// Days between now and then
 		function daysBetween(now, then) {
 			const startOfDayNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 			return Math.floor((then - startOfDayNow) / 1000 / 60 / 60 / 24 + (startOfDayNow.getTimezoneOffset() - then.getTimezoneOffset()) / (60 * 24));
@@ -236,6 +237,7 @@ window.timeRemainingSettings = {
 			var skillReq = []; // Needed items for craft and their quantities
 			var itemCraft = []; // Amount of items craftable for each resource requirement
 			var recordCraft = Infinity; // Amount of craftable items for limiting resource
+			let skillIsMagic = skillID === CONSTANTS.skill.Magic; // magic has no mastery, so we often check this
 
 			// Generate default values for script
 			var timeLeftID = "timeLeft".concat(skillName[skillID]); // Field for generating timeLeft HTML
@@ -389,7 +391,7 @@ window.timeRemainingSettings = {
 			}
 
 			// Configure initial mastery values for all skills with masteries
-			if (skillID != CONSTANTS.skill.Magic) {
+			if (!skillIsMagic) {
 				initialTotalMasteryPoolXP = MASTERY[skillID].pool;
 				masteryPoolMaxXP = getMasteryPoolTotalXP(skillID);
 				initialTotalMasteryLevelForSkill = getCurrentTotalMasteryLevelForSkill(skillID);
@@ -415,7 +417,7 @@ window.timeRemainingSettings = {
 
 			// Check for Crown of Rhaelyx
 			var RhaelyxChance = 0.15;
-			if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && skillID != CONSTANTS.skill.Magic) {
+			if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && !skillIsMagic) {
 				for (let i = 0; i < masteryLimLevel.length; i++) {
 					chanceToKeep[i] += 0.10; // Add base 10% chance
 				}
@@ -738,16 +740,16 @@ window.timeRemainingSettings = {
 				};
 			}
 
-			var results = calcExpectedTime(recordCraft);
-
 			//Time left
+			var results = 0;
 			var timeLeft = 0;
 			var timeLeftPool = 0;
 			var timeLeftMastery = 0;
 			var timeLeftSkill = 0;
-			if (skillID == CONSTANTS.skill.Magic) {
+			if (skillIsMagic) {
 				timeLeft = Math.round(recordCraft * skillInterval / 1000);
 			} else {
+				results = calcExpectedTime(recordCraft);
 				timeLeft = Math.round(results.timeLeft / 1000);
 				timeLeftPool = Math.round(results.maxPoolTime / 1000);
 				timeLeftMastery = Math.round(results.maxMasteryTime / 1000);
@@ -763,7 +765,7 @@ window.timeRemainingSettings = {
 			if(timeLeftElement !== null) {
 				if (timeLeft !== 0) {
 					let finishedTime = AddSecondsToDate(now, timeLeft);
-					if (timeRemainingSettings.SHOW_XP_RATE) {
+					if (timeRemainingSettings.SHOW_XP_RATE && !skillIsMagic) {
 						timeLeftElement.textContent = "XP/h: " + formatNumber(Math.floor(results.xph))
 							+ "\r\nMXP/h: " + formatNumber(Math.floor(results.masteryXPh))
 							+ "\r\nActions: " + formatNumber(results.actions)
@@ -778,7 +780,7 @@ window.timeRemainingSettings = {
 					timeLeftElement.style.display = "none";
 				}
 			}
-			if (skillID != CONSTANTS.skill.Magic) {
+			if (!skillIsMagic) {
 				// Generate progression Tooltips
 				if (!timeLeftElement._tippy) {
 					tippy(timeLeftElement, {
@@ -833,7 +835,7 @@ window.timeRemainingSettings = {
 			["Herblore", ["Herblore"]],
 			["Cooking", ["Food"]],
 			["Firemaking", ["Log"], "burnLog"],
-			// ["Magic", ["Magic", "ItemForMagic"], "castMagic"],
+			["Magic", ["Magic", "ItemForMagic"], "castMagic"],
 		].forEach(skill => {
 			let long = skill[0];
 			let shorts = skill[1];
