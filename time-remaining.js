@@ -26,6 +26,9 @@ window.timeRemainingSettings = {
 	SHOW_XP_RATE: false,
 	// true to allow final pool percentage > 100%
 	UNCAP_POOL: false,
+	// true will show the current xp/h and mastery xp/h; false shows average if using all resources
+	// does not affect anything if SHOW_XP_RATE is false
+	CURRENT_RATES: false,
 };
 
 (function () {
@@ -726,6 +729,8 @@ window.timeRemainingSettings = {
 					// estimate total remaining actions
 					actions += expectedActions;
 				}
+				let avgXph = (currentTotalSkillXP - initialSkillXP) * 3600 * 1000 / sumTotalTime;
+				let avgMasteryXph = (currentTotalMasteryXP - initialTotalMasteryXP) * 3600 * 1000 / sumTotalTime;
 				return {
 					"timeLeft" : Math.round(sumTotalTime),
 					"actions": actions,
@@ -735,8 +740,8 @@ window.timeRemainingSettings = {
 					"maxPoolTime" : maxPoolTime,
 					"maxMasteryTime" : maxMasteryTime,
 					"maxSkillTime" : maxSkillTime,
-					"masteryXPh": masteryXPh,
-					"xph" : xph,
+					"masteryXPh": timeRemainingSettings.CURRENT_RATES ? masteryXPh : avgMasteryXph,
+					"xph" : timeRemainingSettings.CURRENT_RATES ? xph : avgXph,
 				};
 			}
 
