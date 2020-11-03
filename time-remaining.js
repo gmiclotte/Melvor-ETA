@@ -24,6 +24,8 @@ window.timeRemainingSettings = {
 	IS_SHORT_CLOCK: false,
 	// true for alternative main display with xp/h, mastery xp/h and action count
 	SHOW_XP_RATE: false,
+	// true to allow final pool percentage > 100%
+	UNCAP_POOL: false,
 };
 
 (function () {
@@ -720,7 +722,7 @@ window.timeRemainingSettings = {
 					"actions": actions,
 					"finalSkillXP" : currentTotalSkillXP,
 					"finalMasteryXP" : currentTotalMasteryXP,
-					"finalPoolPercentage" : Math.min((currentTotalPoolXP/masteryPoolMaxXP) * 100, 100).toFixed(2),
+					"finalPoolPercentage" : Math.min((currentTotalPoolXP/masteryPoolMaxXP) * 100, timeRemainingSettings.UNCAP_POOL ? Infinity : 100).toFixed(2),
 					"maxPoolTime" : maxPoolTime,
 					"maxMasteryTime" : maxMasteryTime,
 					"maxSkillTime" : maxSkillTime,
