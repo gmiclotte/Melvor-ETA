@@ -29,6 +29,19 @@ window.timeRemainingSettings = {
 	// true will show the current xp/h and mastery xp/h; false shows average if using all resources
 	// does not affect anything if SHOW_XP_RATE is false
 	CURRENT_RATES: false,
+	// Default target level is 99, this can be changed
+	GLOBAL_TARGET_LEVEL: 99,
+	// skill specific target levels can be defined here, these can override the global target level
+	TARGET_LEVEL: {
+		// [CONSTANTS.skill.Firemaking]: undefined,
+	},
+	// returns the appropriate target level
+	getTargetLevel: (skillID) => {
+		if (timeRemainingSettings.TARGET_LEVEL[skillID] === undefined) {
+			return timeRemainingSettings.GLOBAL_TARGET_LEVEL;
+		}
+		return timeRemainingSettings.TARGET_LEVEL[skillID];
+	}
 };
 
 (function () {
@@ -623,7 +636,7 @@ window.timeRemainingSettings = {
 				let maxPoolReached = false;
 				let maxMasteryReached = false;
 				let maxSkillReached = false;
-				let maxXP = convertLvlToXP(99);
+				let maxXP = convertLvlToXP(timeRemainingSettings.getTargetLevel(skillID));
 				if (initialTotalMasteryPoolXP >= masteryPoolMaxXP) maxPoolReached = true;
 				if (initialTotalMasteryXP >= maxXP) maxMasteryReached = true;
 				if (initialSkillXP >= maxXP) maxSkillReached = true;
@@ -801,7 +814,7 @@ window.timeRemainingSettings = {
 				let timeLeftSkillElement = '';
 				if (timeLeftSkill > 0){
 					let finishedTimeSkill = AddSecondsToDate(now,timeLeftSkill);
-					timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to 99: ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
+					timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to ' + timeRemainingSettings.getTargetLevel(skillID) + ': ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
 				}
 				let percentageMastery = (getPercentageInLevel(results.finalMasteryXP,results.finalMasteryXP,"mastery")).toFixed(1);
 				let percentageMasteryElement = (percentageMastery === 0) ? '' : ` +${percentageMastery}%`;
