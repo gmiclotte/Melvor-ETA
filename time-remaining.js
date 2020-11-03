@@ -163,9 +163,11 @@ window.timeRemainingSettings = {
 			if (is12h) {
 				amOrPm = hours >= 12 ? 'pm' : 'am';
 				hours = (hours % 12) || 12;
+			} else {
+				// only pad 24h clock hours
+				hours = hours < 10 ? '0' + hours : hours;
 			}
-			// pad numbers
-			hours = hours < 10 ? '0' + hours : hours;
+			// pad minutes
 			minutes = minutes < 10 ? '0' + minutes : minutes;
 			// concat and return remaining time
 			return hours + ':' + minutes + amOrPm + days;
