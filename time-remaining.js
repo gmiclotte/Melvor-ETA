@@ -159,7 +159,7 @@ window.timeRemainingSettings = {
 		// Format date 24 hour clock
 		function DateFormat(now, then, is12h = timeRemainingSettings.IS_12H_CLOCK, isShortClock = timeRemainingSettings.IS_SHORT_CLOCK){
 			let days = daysBetween(now, then);
-			days = (days == 0) ? "" : (days == 1) ? " tomorrow" : ` + ${days}` + (isShortClock ? "d" : " days");
+			days = (days === 0) ? "" : (days === 1) ? " tomorrow" : ` + ${days}` + (isShortClock ? "d" : " days");
 			let hours = then.getHours();
 			let minutes = then.getMinutes();
 			// convert to 12h clock if required
@@ -207,12 +207,12 @@ window.timeRemainingSettings = {
 		// Progress in current level
 		function getPercentageInLevel(currentXP, finalXP, type, bar = false) {
 			let currentLevel = convertXPToLvl(currentXP, true);
-			if (currentLevel >= 99 && (type == "mastery" || bar == true)) return 0;
+			if (currentLevel >= 99 && (type === "mastery" || bar === true)) return 0;
 			let currentLevelXP = convertLvlToXP(currentLevel);
 			let nextLevelXP = convertLvlToXP(currentLevel+1);
 			let diffLevelXP = nextLevelXP - currentLevelXP;
 			let currentLevelPercentage = (currentXP - currentLevelXP) / diffLevelXP * 100;
-			if (bar == true) {
+			if (bar === true) {
 				let finalLevelPercentage = ((finalXP - currentXP) > (nextLevelXP - currentXP)) ? 100 - currentLevelPercentage : ((finalXP - currentXP)/diffLevelXP*100).toFixed(4);
 				return finalLevelPercentage;
 			}
@@ -279,7 +279,7 @@ window.timeRemainingSettings = {
 						skillReq.push(i);
 					}
 					//Special Case for Arrow Shafts
-					if (item == 276) {
+					if (item === 276) {
 						if (window.selectedFletchLog === undefined) {window.selectedFletchLog = 0;}
 						skillReq = [skillReq[window.selectedFletchLog]];
 					}
@@ -372,15 +372,15 @@ window.timeRemainingSettings = {
 					skillReq = skillReq.filter(item => item.qty > 0); // Remove all runes with 0 cost
 
 					//Other items
-					if (ALTMAGIC[selectedAltMagic].selectItem == 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
+					if (ALTMAGIC[selectedAltMagic].selectItem === 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
 						skillReq.push({id: selectedMagicItem[1], qty: 1});
 					}
-					else if (ALTMAGIC[selectedAltMagic].selectItem == -1) { // Spells that doesn't require you to select an item
+					else if (ALTMAGIC[selectedAltMagic].selectItem === -1) { // Spells that doesn't require you to select an item
 						if (ALTMAGIC[selectedAltMagic].needCoal) { // Rags to Riches II
 							skillReq.push({id: 48, qty: 1});
 						}
 					}
-					else if (selectedMagicItem[0] !== null && ALTMAGIC[selectedAltMagic].selectItem == 0) { // SUPERHEAT
+					else if (selectedMagicItem[0] !== null && ALTMAGIC[selectedAltMagic].selectItem === 0) { // SUPERHEAT
 						for (let i of items[selectedMagicItem[0]].smithReq) {
 							skillReq.push({...i});
 						}
@@ -548,7 +548,7 @@ window.timeRemainingSettings = {
 					}
 					for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
 						// The logs you are not burning
-						if (masteryID != i) {
+						if (masteryID !== i) {
 							if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) {
 								xpModifier += 0.0025;
 							}
@@ -680,7 +680,7 @@ window.timeRemainingSettings = {
 					let expectedActions = Math.ceil(Math.min(masteryXPActions, skillXPActions, poolXPActions, resourceActions));
 
 					// Take away resources based on expectedActions
-					if (expectedActions == resourceActions) {
+					if (expectedActions === resourceActions) {
 						resources = 0; // No more limits
 					} else {
 						let resUsed = 0;
@@ -724,7 +724,7 @@ window.timeRemainingSettings = {
 					if ( chargeUses < 0 ) chargeUses = 0;
 
 					// Level up mastery if hitting Mastery limit
-					if ( masteryXPActions == expectedActions ) currentTotalMasteryLevelForSkill++;
+					if ( masteryXPActions === expectedActions ) currentTotalMasteryLevelForSkill++;
 
 					// estimate total remaining actions
 					actions += expectedActions;
@@ -796,7 +796,7 @@ window.timeRemainingSettings = {
 				}
 				let wrapper = ['<div class="row"><div class="col-6" style="white-space: nowrap;"><h3 class="block-title m-1" style="color:white;" >','</h3></div><div class="col-6" style="white-space: nowrap;"><h3 class="block-title m-1 pl-1"><span class="p-1 bg-',' rounded" style="text-align:center; display: inline-block;line-height: normal;width: 70px;color:white;">','</span>','</h3></div></div>'];
 				let percentageSkill = (getPercentageInLevel(results.finalSkillXP,results.finalSkillXP,"skill")).toFixed(1);
-				let percentageSkillElement = (percentageSkill == 0) ? '' : ` +${percentageSkill}%`;
+				let percentageSkillElement = (percentageSkill === 0) ? '' : ` +${percentageSkill}%`;
 				let finalSkillLevelElement = wrapper[0] + 'Final Skill Level ' + wrapper[1] + 'success' + wrapper[2] + convertXPToLvl(results.finalSkillXP,true) + ' / 99' + wrapper[3] + percentageSkillElement + wrapper[4];
 				let timeLeftSkillElement = '';
 				if (timeLeftSkill > 0){
@@ -804,7 +804,7 @@ window.timeRemainingSettings = {
 					timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to 99: ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
 				}
 				let percentageMastery = (getPercentageInLevel(results.finalMasteryXP,results.finalMasteryXP,"mastery")).toFixed(1);
-				let percentageMasteryElement = (percentageMastery == 0) ? '' : ` +${percentageMastery}%`;
+				let percentageMasteryElement = (percentageMastery === 0) ? '' : ` +${percentageMastery}%`;
 				let finalMasteryLevelElement = wrapper[0] + 'Final Mastery Level ' + wrapper[1] + 'info' + wrapper[2] + convertXPToLvl(results.finalMasteryXP) + ' / 99' + wrapper[3] + percentageMasteryElement + wrapper[4];
 				let timeLeftMasteryElement = '';
 				if (timeLeftMastery > 0){
