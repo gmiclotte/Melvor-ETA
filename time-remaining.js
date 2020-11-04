@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor TimeRemaining
 // @namespace	http://tampermonkey.net/
-// @version		0.6.2.2-3
+// @version		0.6.2.2-4
 // @description	Shows time remaining for completing a task with your current resources. Takes into account Mastery Levels and other bonuses.
 // @author		Breindahl#2660
 // @match		https://melvoridle.com/*
@@ -184,11 +184,11 @@ function script() {
 		return hours + ':' + minutes + amOrPm + days;
 	}
 
-	// Level to XP Array
+	// Level to Xp Array
 	const lvlToXp = Array.from({ length: 200 }, (_, i) => exp.level_to_xp(i));
 
-	// Convert level to XP needed to reach that level
-	function convertLvlToXP(level) {
+	// Convert level to Xp needed to reach that level
+	function convertLvlToXp(level) {
 		if (level === Infinity) { return Infinity; }
 		let xp = 0;
 		if (level === 1) { return xp; }
@@ -196,8 +196,8 @@ function script() {
 		return xp;
 	}
 
-	// Convert XP value to level
-	function convertXPToLvl(xp, noCap = false) {
+	// Convert Xp value to level
+	function convertXpToLvl(xp, noCap = false) {
 		let level = 1;
 		while (lvlToXp[level] < xp) { level++; }
 		level--;
@@ -208,19 +208,19 @@ function script() {
 
 	// Get Mastery Level of given Skill and Mastery ID
 	function getMasteryLevel(skill, masteryID) {
-		return convertXPToLvl(MASTERY[skill].xp[masteryID]);
+		return convertXpToLvl(MASTERY[skill].xp[masteryID]);
 	}
 
 	// Progress in current level
-	function getPercentageInLevel(currentXP, finalXP, type, bar = false) {
-		let currentLevel = convertXPToLvl(currentXP, true);
+	function getPercentageInLevel(currentXp, finalXp, type, bar = false) {
+		let currentLevel = convertXpToLvl(currentXp, true);
 		if (currentLevel >= 99 && (type === "mastery" || bar === true)) return 0;
-		let currentLevelXP = convertLvlToXP(currentLevel);
-		let nextLevelXP = convertLvlToXP(currentLevel+1);
-		let diffLevelXP = nextLevelXP - currentLevelXP;
-		let currentLevelPercentage = (currentXP - currentLevelXP) / diffLevelXP * 100;
+		let currentLevelXp = convertLvlToXp(currentLevel);
+		let nextLevelXp = convertLvlToXp(currentLevel+1);
+		let diffLevelXp = nextLevelXp - currentLevelXp;
+		let currentLevelPercentage = (currentXp - currentLevelXp) / diffLevelXp * 100;
 		if (bar === true) {
-			let finalLevelPercentage = ((finalXP - currentXP) > (nextLevelXP - currentXP)) ? 100 - currentLevelPercentage : ((finalXP - currentXP)/diffLevelXP*100).toFixed(4);
+			let finalLevelPercentage = ((finalXp - currentXp) > (nextLevelXp - currentXp)) ? 100 - currentLevelPercentage : ((finalXp - currentXp)/diffLevelXp*100).toFixed(4);
 			return finalLevelPercentage;
 		}
 		else {
@@ -228,12 +228,12 @@ function script() {
 		}
 	}
 
-	//Return the chanceToKeep for any mastery EXP
-	function masteryChance(tr, masteryEXP, chanceToRefTable){
+	//Return the chanceToKeep for any mastery EXp
+	function masteryPreservation(initial, masteryEXp, chanceToRefTable){
 		let chanceTo = chanceToRefTable;
-		if (masteryEXP >= tr.masteryLim[0]) {
-			for (let i = 0; i < tr.masteryLim.length; i++) {
-				if (tr.masteryLim[i] <= masteryEXP && masteryEXP < tr.masteryLim[i+1]) {
+		if (masteryEXp >= initial.masteryLim[0]) {
+			for (let i = 0; i < initial.masteryLim.length; i++) {
+				if (initial.masteryLim[i] <= masteryEXp && masteryEXp < initial.masteryLim[i+1]) {
 					return chanceTo[i+1];
 				}
 			}
@@ -241,16 +241,16 @@ function script() {
 	}
 
 	// Adjust interval based on unlocked bonuses
-	function intervalAdjustment(tr, currentPoolMasteryXP, currentMasteryXP) {
-		let adjustedInterval = tr.skillInterval;
-		switch (tr.skillID) {
+	function intervalAdjustment(initial, poolXp, masteryXp) {
+		let adjustedInterval = initial.skillInterval;
+		switch (initial.skillID) {
 			case CONSTANTS.skill.Fletching:
-				if (currentPoolMasteryXP >= tr.poolLim[3]) adjustedInterval -= 200;
+				if (poolXp >= initial.poolLim[3]) adjustedInterval -= 200;
 				break;
 
 			case CONSTANTS.skill.Firemaking: {
-				if (currentPoolMasteryXP >= tr.poolLim[1]) adjustedInterval *= 0.9;
-				let decreasedBurnInterval = 1 - convertXPToLvl(currentMasteryXP) * 0.001;
+				if (poolXp >= initial.poolLim[1]) adjustedInterval *= 0.9;
+				let decreasedBurnInterval = 1 - convertXpToLvl(masteryXp) * 0.001;
 				adjustedInterval *= decreasedBurnInterval;
 				break;
 			}
@@ -259,69 +259,69 @@ function script() {
 	}
 
 	// Adjust preservation chance based on unlocked bonuses
-	function preservationAdjustment(tr, currentPoolMasteryXP) {
-		let adjustedPreservation = 0;
-		switch (tr.skillID) {
+	function poolPreservation(initial, poolXp) {
+		let preservation = 0;
+		switch (initial.skillID) {
 			case CONSTANTS.skill.Smithing:
-				if (currentPoolMasteryXP >= tr.poolLim[1]) adjustedPreservation += 5;
-				if (currentPoolMasteryXP >= tr.poolLim[2]) adjustedPreservation += 5;
+				if (poolXp >= initial.poolLim[1]) preservation += 5;
+				if (poolXp >= initial.poolLim[2]) preservation += 5;
 				break;
 
 			case CONSTANTS.skill.Runecrafting:
-				if (currentPoolMasteryXP >= tr.poolLim[2]) adjustedPreservation += 10;
+				if (poolXp >= initial.poolLim[2]) preservation += 10;
 				break;
 
 			case CONSTANTS.skill.Herblore:
-				if (currentPoolMasteryXP >= tr.poolLim[2]) adjustedPreservation += 5;
+				if (poolXp >= initial.poolLim[2]) preservation += 5;
 				break;
 
 			case CONSTANTS.skill.Cooking:
-				if (currentPoolMasteryXP >= tr.poolLim[2]) adjustedPreservation += 10;
+				if (poolXp >= initial.poolLim[2]) preservation += 10;
 				break;
 		}
-		return adjustedPreservation / 100;
+		return preservation / 100;
 	}
 
-	// Adjust skill XP based on unlocked bonuses
-	function skillXPAdjustment(tr, currentPoolMasteryXP, currentMasteryXP) {
+	// Adjust skill Xp based on unlocked bonuses
+	function skillXpAdjustment(initial, poolXp, masteryXp) {
 		let xpMultiplier = 1;
-		switch (tr.skillID) {
+		switch (initial.skillID) {
 			case CONSTANTS.skill.Runecrafting:
-				if (currentPoolMasteryXP >= tr.poolLim[1] && items[tr.item].type === "Rune") xpMultiplier += 1.5;
+				if (poolXp >= initial.poolLim[1] && items[initial.item].type === "Rune") xpMultiplier += 1.5;
 				break;
 
 			case CONSTANTS.skill.Cooking: {
-				let burnChance = calcBurnChance(currentMasteryXP);
-				let cookXP = tr.itemXP * (1 - burnChance);
-				let burnXP = 1 * burnChance;
-				return cookXP + burnXP;
+				let burnChance = calcBurnChance(masteryXp);
+				let cookXp = initial.itemXp * (1 - burnChance);
+				let burnXp = 1 * burnChance;
+				return cookXp + burnXp;
 			}
 		}
-		return tr.itemXP * xpMultiplier;
+		return initial.itemXp * xpMultiplier;
 	}
 
 	// Calculate total number of unlocked items for skill based on current skill level
-	function calcTotalUnlockedItems(tr, currentTotalSkillXP) {
+	function calcTotalUnlockedItems(skillID, skillXp) {
 		let count = 0;
-		let currentSkillLevel = convertXPToLvl(currentTotalSkillXP);
-		for (let i = 0; i < MILESTONES[skillName[tr.skillID]].length; i++) {
-			if (currentSkillLevel >= MILESTONES[skillName[tr.skillID]][i].level) count++;
+		let currentSkillLevel = convertXpToLvl(skillXp);
+		for (let i = 0; i < MILESTONES[skillName[skillID]].length; i++) {
+			if (currentSkillLevel >= MILESTONES[skillName[skillID]][i].level) count++;
 		}
 		return count;
 	}
 
-	function trVariables(skillID) {
-		let tr = {
+	function initialVariables(skillID) {
+		let initial = {
 			skillID: skillID,
 			item: 0,
-			itemXP: 0,
+			itemXp: 0,
 			skillInterval: 0,
 			masteryID: 0,
-			chargeUses: 0,
-			initialTotalMasteryPoolXP: 0,
-			masteryPoolMaxXP: 0,
-			initialTotalMasteryLevelForSkill: 0,
-			initialTotalMasteryXP: 0, // Current amount of Mastery experience
+			skillXp: skillXP[skillID], // Current skill Xp
+			masteryXp: 0, // Current amount of Mastery experience
+			totalMasteryLevel: 0,
+			poolXp: 0,
+			maxPoolXp: 0,
 			masteryLim: [], // Xp needed to reach next level
 			skillLim: [], // Xp needed to reach next level
 			poolLim: [], // Xp need to reach next pool checkpoint
@@ -330,18 +330,19 @@ function script() {
 			skillIsMagic: skillID === CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
 			// Generate default values for script
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
-			initialSkillXP: skillXP[skillID], // Current skill XP
+			maxXp: convertLvlToXp(timeRemainingSettings.getTargetLevel(skillID)),
+			maxMasteryXp: convertLvlToXp(99),
 		}
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
-		tr.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
-		tr.masteryLimLevel.push(Infinity);
+		initial.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
+		initial.masteryLimLevel.push(Infinity);
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
-		tr.skillLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
-		tr.skillLimLevel.push(Infinity);
+		initial.skillLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
+		initial.skillLimLevel.push(Infinity);
 		// Chance to keep at breakpoints - default 0.2% per level
-		tr.chanceToKeep = Array.from({ length: 99 }, (_, i) => i *0.002);
-		tr.chanceToKeep[98] += 0.05; // Level 99 Bonus
-		return tr;
+		initial.chanceToKeep = Array.from({ length: 99 }, (_, i) => i *0.002);
+		initial.chanceToKeep[98] += 0.05; // Level 99 Bonus
+		return initial;
 	}
 
 	function skillCapeEquipped(capeID) {
@@ -350,180 +351,178 @@ function script() {
 			|| equippedItems.includes(CONSTANTS.item.Cape_of_Completion);
 	}
 
-	function configureSmithing(tr) {
-		tr.item = smithingItems[selectedSmith].itemID;
-		tr.itemXP = items[tr.item].smithingXP;
-		tr.skillInterval = 2000;
-		if (godUpgrade[3]) tr.skillInterval *= 0.8;
-		for (let i of items[tr.item].smithReq) {
-			tr.skillReq.push(i);
+	function configureSmithing(initial) {
+		initial.item = smithingItems[selectedSmith].itemID;
+		initial.itemXp = items[initial.item].smithingXP;
+		initial.skillInterval = 2000;
+		if (godUpgrade[3]) initial.skillInterval *= 0.8;
+		for (let i of items[initial.item].smithReq) {
+			initial.skillReq.push(i);
 		}
-		tr.masteryLimLevel = [20, 40, 60, 80, 99, Infinity]; // Smithing Mastery Limits
-		tr.chanceToKeep = [0, 0.05, 0.10, 0.15, 0.20, 0.30]; //Smithing Mastery bonus percentages
-		if (petUnlocked[5]) tr.chanceToKeep = tr.chanceToKeep.map(n => n + PETS[5].chance / 100); // Add Pet Bonus
-		return tr;
+		initial.masteryLimLevel = [20, 40, 60, 80, 99, Infinity]; // Smithing Mastery Limits
+		initial.chanceToKeep = [0, 0.05, 0.10, 0.15, 0.20, 0.30]; //Smithing Mastery bonus percentages
+		if (petUnlocked[5]) initial.chanceToKeep = initial.chanceToKeep.map(n => n + PETS[5].chance / 100); // Add Pet Bonus
+		return initial;
 	}
 
-	function configureFletching(tr) {
-		tr.item = fletchingItems[selectedFletch].itemID;
-		tr.itemXP = items[tr.item].fletchingXP;
-		tr.skillInterval = 2000;
-		if (godUpgrade[0]) tr.skillInterval *= 0.8;
-		if (petUnlocked[8]) tr.skillInterval -= 200;
-		for (let i of items[tr.item].fletchReq) {
-			tr.skillReq.push(i);
+	function configureFletching(initial) {
+		initial.item = fletchingItems[selectedFletch].itemID;
+		initial.itemXp = items[initial.item].fletchingXP;
+		initial.skillInterval = 2000;
+		if (godUpgrade[0]) initial.skillInterval *= 0.8;
+		if (petUnlocked[8]) initial.skillInterval -= 200;
+		for (let i of items[initial.item].fletchReq) {
+			initial.skillReq.push(i);
 		}
 		//Special Case for Arrow Shafts
-		if (tr.item === CONSTANTS.item.Arrow_Shafts) {
+		if (initial.item === CONSTANTS.item.Arrow_Shafts) {
 			if (window.selectedFletchLog === undefined) {
 				window.selectedFletchLog = 0;
 			}
-			tr.skillReq = [tr.skillReq[window.selectedFletchLog]];
+			initial.skillReq = [initial.skillReq[window.selectedFletchLog]];
 		}
-		return tr;
+		return initial;
 	}
 
-	function configureRunecrafting(tr) {
-		tr.item = runecraftingItems[selectedRunecraft].itemID;
-		tr.itemXP = items[tr.item].runecraftingXP;
-		tr.skillInterval = 2000;
-		if (godUpgrade[1]) tr.skillInterval *= 0.8;
-		for (let i of items[tr.item].runecraftReq) {
-			tr.skillReq.push(i);
+	function configureRunecrafting(initial) {
+		initial.item = runecraftingItems[selectedRunecraft].itemID;
+		initial.itemXp = items[initial.item].runecraftingXP;
+		initial.skillInterval = 2000;
+		if (godUpgrade[1]) initial.skillInterval *= 0.8;
+		for (let i of items[initial.item].runecraftReq) {
+			initial.skillReq.push(i);
 		}
-		tr.masteryLimLevel = [99, Infinity]; // Runecrafting has no Mastery bonus
-		tr.chanceToKeep = [0, 0]; //Thus no chance to keep
+		initial.masteryLimLevel = [99, Infinity]; // Runecrafting has no Mastery bonus
+		initial.chanceToKeep = [0, 0]; //Thus no chance to keep
 		if (skillCapeEquipped(CONSTANTS.item.Runecrafting_Skillcape)) {
-			tr.chanceToKeep[0] += 0.35;
+			initial.chanceToKeep[0] += 0.35;
 		}
-		if (petUnlocked[10]) tr.chanceToKeep[0] += PETS[10].chance / 100;
-		tr.chanceToKeep[1] = tr.chanceToKeep[0];
-		return tr;
+		if (petUnlocked[10]) initial.chanceToKeep[0] += PETS[10].chance / 100;
+		initial.chanceToKeep[1] = initial.chanceToKeep[0];
+		return initial;
 	}
 
-	function configureCrafting(tr) {
-		tr.item = craftingItems[selectedCraft].itemID;
-		tr.itemXP = items[tr.item].craftingXP;
-		tr.skillInterval = 3000;
-		if (godUpgrade[0]) tr.skillInterval *= 0.8;
+	function configureCrafting(initial) {
+		initial.item = craftingItems[selectedCraft].itemID;
+		initial.itemXp = items[initial.item].craftingXP;
+		initial.skillInterval = 3000;
+		if (godUpgrade[0]) initial.skillInterval *= 0.8;
 		if (skillCapeEquipped(CONSTANTS.item.Crafting_Skillcape)) {
-			tr.skillInterval -= 500;
+			initial.skillInterval -= 500;
 		}
-		if (petUnlocked[9]) tr.skillInterval -= 200;
-		for (let i of items[tr.item].craftReq) {
-			tr.skillReq.push(i);
-		}
-		return tr;
+		if (petUnlocked[9]) initial.skillInterval -= 200;
+		items[initial.item].craftReq.forEach(i=>initial.skillReq.push(i));
+		return initial;
 	}
 
-	function configureHerblore(tr){
-		tr.item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
-		tr.itemXP = herbloreItemData[selectedHerblore].herbloreXP;
-		tr.skillInterval = 2000;
-		if (godUpgrade[1]) tr.skillInterval *= 0.8;
-		for (let i of items[tr.item].herbloreReq) {
-			tr.skillReq.push(i);
+	function configureHerblore(initial){
+		initial.item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
+		initial.itemXp = herbloreItemData[selectedHerblore].herbloreXP;
+		initial.skillInterval = 2000;
+		if (godUpgrade[1]) initial.skillInterval *= 0.8;
+		for (let i of items[initial.item].herbloreReq) {
+			initial.skillReq.push(i);
 		}
-		return tr;
+		return initial;
 	}
 
-	function configureCooking(tr) {
-		tr.item = selectedFood;
-		tr.itemXP = items[tr.item].cookingXP;
+	function configureCooking(initial) {
+		initial.item = selectedFood;
+		initial.itemXp = items[initial.item].cookingXP;
 		if (currentCookingFire > 0) {
-			tr.itemXP *= (1 + cookingFireData[currentCookingFire - 1].bonusXP / 100);
+			initial.itemXp *= (1 + cookingFireData[currentCookingFire - 1].bonusXP / 100);
 		}
-		tr.skillInterval = 3000;
-		if (godUpgrade[3]) tr.skillInterval *= 0.8;
-		tr.skillReq = [{id: tr.item, qty: 1}];
-		tr.masteryLimLevel = [99, Infinity]; //Cooking has no Mastery bonus
-		tr.chanceToKeep = [0, 0]; //Thus no chance to keep
-		tr.item = items[tr.item].cookedItemID;
-		return tr;
+		initial.skillInterval = 3000;
+		if (godUpgrade[3]) initial.skillInterval *= 0.8;
+		initial.skillReq = [{id: initial.item, qty: 1}];
+		initial.masteryLimLevel = [99, Infinity]; //Cooking has no Mastery bonus
+		initial.chanceToKeep = [0, 0]; //Thus no chance to keep
+		initial.item = items[initial.item].cookedItemID;
+		return initial;
 	}
 
-	function configureFiremaking(tr) {
-		tr.item = selectedLog;
-		tr.itemXP = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
-		tr.skillInterval = logsData[selectedLog].interval;
-		if (godUpgrade[3]) tr.skillInterval *= 0.8;
-		tr.skillReq = [{id: tr.item, qty: 1}];
-		tr.chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
-		return tr;
+	function configureFiremaking(initial) {
+		initial.item = selectedLog;
+		initial.itemXp = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
+		initial.skillInterval = logsData[selectedLog].interval;
+		if (godUpgrade[3]) initial.skillInterval *= 0.8;
+		initial.skillReq = [{id: initial.item, qty: 1}];
+		initial.chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
+		return initial;
 	}
 
-	function configureMagic(tr) {
-		tr.skillInterval = 2000;
+	function configureMagic(initial) {
+		initial.skillInterval = 2000;
 		//Find need runes for spell
 		if (ALTMAGIC[selectedAltMagic].runesRequiredAlt !== undefined && useCombinationRunes) {
 			for (let i of ALTMAGIC[selectedAltMagic].runesRequiredAlt) {
-				tr.skillReq.push({...i});
+				initial.skillReq.push({...i});
 			}
 		}
 		else {
 			for (let i of ALTMAGIC[selectedAltMagic].runesRequired) {
-				tr.skillReq.push({...i});
+				initial.skillReq.push({...i});
 			}
 		}
 
 		// Get Rune discount
-		for (let i = 0; i < tr.skillReq.length; i++) {
+		for (let i = 0; i < initial.skillReq.length; i++) {
 			if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune !== undefined) {
-				if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune.includes(tr.skillReq[i].id)) {
+				if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune.includes(initial.skillReq[i].id)) {
 					let capeMultiplier = 1;
 					if (skillCapeEquipped(CONSTANTS.item.Magic_Skillcape)) capeMultiplier = 2; // Add cape multiplier
-					tr.skillReq[i].qty -= items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRuneQty * capeMultiplier;
+					initial.skillReq[i].qty -= items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRuneQty * capeMultiplier;
 				}
 			}
 		}
-		tr.skillReq = tr.skillReq.filter(item => item.qty > 0); // Remove all runes with 0 cost
+		initial.skillReq = initial.skillReq.filter(item => item.qty > 0); // Remove all runes with 0 cost
 		//Other items
 		if (ALTMAGIC[selectedAltMagic].selectItem === 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
-			tr.skillReq.push({id: selectedMagicItem[1], qty: 1});
+			initial.skillReq.push({id: selectedMagicItem[1], qty: 1});
 		}
 		else if (ALTMAGIC[selectedAltMagic].selectItem === -1) { // Spells that doesn't require you to select an item
 			if (ALTMAGIC[selectedAltMagic].needCoal) { // Rags to Riches II
-				tr.skillReq.push({id: 48, qty: 1});
+				initial.skillReq.push({id: 48, qty: 1});
 			}
 		}
 		else if (selectedMagicItem[0] !== null && ALTMAGIC[selectedAltMagic].selectItem === 0) { // SUPERHEAT
 			for (let i of items[selectedMagicItem[0]].smithReq) {
-				tr.skillReq.push({...i});
+				initial.skillReq.push({...i});
 			}
 			if (ALTMAGIC[selectedAltMagic].ignoreCoal) {
-				tr.skillReq = tr.skillReq.filter(item => item.id !== 48);
+				initial.skillReq = initial.skillReq.filter(item => item.id !== 48);
 			}
 		}
-		tr.masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
-		tr.chanceToKeep = [0]; //Thus no chance to keep
-		return tr;
+		initial.masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
+		initial.chanceToKeep = [0]; //Thus no chance to keep
+		return initial;
 	}
 
 	// Calculate mastery xp based on unlocked bonuses
-	function calcMasteryXpToAdd(tr, timePerAction, currentTotalSkillXP, currentMasteryXP, currentPoolMasteryXP, currentTotalMasteryLevelForSkill) {
+	function calcMasteryXpToAdd(initial, timePerAction, skillXp, masteryXp, poolXp, totalMasteryLevel) {
 		let xpModifier = 1;
-		// General Mastery XP formula
-		let xpToAdd = (((calcTotalUnlockedItems(tr, currentTotalSkillXP) * currentTotalMasteryLevelForSkill) / getTotalMasteryLevelForSkill(tr.skillID) + convertXPToLvl(currentMasteryXP) * (getTotalItemsInSkill(tr.skillID) / 10)) * (timePerAction / 1000)) / 2;
+		// General Mastery Xp formula
+		let xpToAdd = (((calcTotalUnlockedItems(initial.skillID, skillXp) * totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID) + convertXpToLvl(masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)) * (timePerAction / 1000)) / 2;
 		// Skill specific mastery pool modifier
-		if (currentPoolMasteryXP >= tr.poolLim[0]) {
+		if (poolXp >= initial.poolLim[0]) {
 			xpModifier += 0.05;
 		}
 		// Firemaking pool and log modifiers
-		if (tr.skillID === CONSTANTS.skill.Firemaking) {
-			// If current skill is Firemaking, we need to apply mastery progression from actions and use updated currentPoolMasteryXP values
-			if (currentPoolMasteryXP >= tr.poolLim[3]) {
+		if (initial.skillID === CONSTANTS.skill.Firemaking) {
+			// If current skill is Firemaking, we need to apply mastery progression from actions and use updated poolXp values
+			if (poolXp >= initial.poolLim[3]) {
 				xpModifier += 0.05;
 			}
 			for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
 				// The logs you are not burning
-				if (tr.masteryID !== i) {
+				if (initial.masteryID !== i) {
 					if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) {
 						xpModifier += 0.0025;
 					}
 				}
 			}
 			// The log you are burning
-			if (convertXPToLvl(currentMasteryXP) >= 99) {
+			if (convertXpToLvl(masteryXp) >= 99) {
 				xpModifier += 0.0025;
 			}
 		} else {
@@ -550,22 +549,22 @@ function script() {
 		if (xpToAdd < 1) {
 			xpToAdd = 1;
 		}
-		// BurnChance affects average mastery XP
-		if (tr.skillID === CONSTANTS.skill.Cooking) {
-			let burnChance = calcBurnChance(currentMasteryXP);
+		// BurnChance affects average mastery Xp
+		if (initial.skillID === CONSTANTS.skill.Cooking) {
+			let burnChance = calcBurnChance(masteryXp);
 			xpToAdd *= (1 - burnChance);
 		}
 		return xpToAdd;
 	}
 
-	// Calculate pool XP based on mastery XP
-	function calcPoolXPToAdd(currentTotalSkillXP, masteryXP) {
-		if (convertXPToLvl(currentTotalSkillXP) >= 99) {return masteryXP / 2; }
-		else { return masteryXP / 4; }
+	// Calculate pool Xp based on mastery Xp
+	function calcPoolXpToAdd(skillXp, masteryXp) {
+		if (convertXpToLvl(skillXp) >= 99) {return masteryXp / 2; }
+		else { return masteryXp / 4; }
 	}
 
 	// Calculate burn chance based on mastery level
-	function calcBurnChance(currentMasteryXP) {
+	function calcBurnChance(masteryXp) {
 		let burnChance = 0;
 		if (skillCapeEquipped(CONSTANTS.item.Cooking_Skillcape)) {
 			return burnChance;
@@ -573,7 +572,7 @@ function script() {
 		if (equippedItems.includes(CONSTANTS.item.Cooking_Gloves)) {
 			return burnChance;
 		}
-		let primaryBurnChance = (30 - convertXPToLvl(currentMasteryXP) * 0.6) / 100;
+		let primaryBurnChance = (30 - convertXpToLvl(masteryXp) * 0.6) / 100;
 		let secondaryBurnChance = 0.01;
 		if (primaryBurnChance <= 0) {
 			return secondaryBurnChance;
@@ -582,141 +581,148 @@ function script() {
 		return burnChance;
 	}
 
-	// Calculates expected time, taking into account Mastery Level advancements during the craft
-	function calcExpectedTime(tr, resources){
-		let sumTotalTime = 0;
-		let maxPoolTime = 0;
-		let maxMasteryTime = 0;
-		let maxSkillTime = 0;
-		let maxPoolReached = false;
-		let maxMasteryReached = false;
-		let maxSkillReached = false;
-		let maxXP = convertLvlToXP(timeRemainingSettings.getTargetLevel(tr.skillID));
-		if (tr.initialTotalMasteryPoolXP >= tr.masteryPoolMaxXP) maxPoolReached = true;
-		if (tr.initialTotalMasteryXP >= maxXP) maxMasteryReached = true;
-		if (tr.initialSkillXP >= maxXP) maxSkillReached = true;
-		let currentTotalMasteryXP = tr.initialTotalMasteryXP;
-		let currentTotalSkillXP = tr.initialSkillXP;
-		let currentTotalPoolXP = tr.initialTotalMasteryPoolXP;
-		let currentTotalMasteryLevelForSkill = tr.initialTotalMasteryLevelForSkill;
-		// compute current xp/h and mxp/h
-		let initialInterval = intervalAdjustment(tr, currentTotalPoolXP, currentTotalMasteryXP);
-		let xph = skillXPAdjustment(tr, currentTotalPoolXP, currentTotalMasteryXP) / initialInterval * 1000 * 3600;
-		// compute current mastery xp / h using the getMasteryXpToAdd from the game
-		let masteryXPh = getMasteryXpToAdd(tr.skillID, tr.masteryID, initialInterval) / initialInterval * 1000 * 3600;
-		// alternative: compute through the calcMasteryXpToAdd method from this script, they should be the same !
-		// let masteryXPh = calcMasteryXpToAdd(initialInterval, currentTotalSkillXP, currentTotalMasteryXP, currentTotalPoolXP, currentTotalMasteryLevelForSkill) / initialInterval * 1000 * 3600;
+	function currentVariables(initial, resources) {
+		let current = {
+			resources: resources,
+			sumTotalTime: 0,
+			maxPoolTime: 0,
+			maxMasteryTime: 0,
+			maxSkillTime: 0,
+			maxPoolReached: initial.poolXp >= initial.maxPoolXp,
+			masteryXp: initial.masteryXp,
+			skillXp: initial.skillXp,
+			poolXp: initial.poolXp,
+			maxMasteryReached: initial.masteryXp >= initial.maxMasteryXp,
+			maxSkillReached: initial.skillXp >= initial.maxXp,
+			totalMasteryLevel: initial.totalMasteryLevel,
+			chargeUses: 0, // estimated remaining charge uses
+			actions: 0, // estimated number of actions taken so far
+		};
+		return current;
+	}
 
+	function calcTimeToBreakpoint(initial, current) {
+		const rhaelyxChargePreservation = 0.15;
+
+		// Adjustments
+		let totalChanceToUse = 1 - masteryPreservation(initial, current.masteryXp, initial.chanceToKeep) - poolPreservation(initial, current.poolXp);
+		let currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
+
+		// Current Xp
+		let masteryXpPerAction = calcMasteryXpToAdd(initial, currentInterval, current.skillXp, current.masteryXp, current.poolXp, current.totalMasteryLevel);
+		let xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
+		let poolXpPerAction = calcPoolXpToAdd(current.skillXp, masteryXpPerAction);
+
+		// Distance to Limits
+		let masteryXpToLimit = initial.masteryLim.find(element => element > current.masteryXp) - current.masteryXp;
+		let skillXpToLimit = initial.skillLim.find(element => element > current.skillXp) - current.skillXp;
+		let poolXpToLimit = initial.poolLim.find(element => element > current.poolXp) - current.poolXp;
+
+		// Actions to limits
+		let masteryXpActions = masteryXpToLimit / masteryXpPerAction;
+		let skillXpActions = skillXpToLimit / xpPerAction;
+		let poolXpActions = poolXpToLimit / poolXpPerAction;
+
+		// estimate amount of actions
+		// number of actions with rhaelyx charges
+		let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
+		// remaining resources
+		let resWithoutCharge = Math.max(0, current.resources - current.chargeUses);
+		// add number of actions without rhaelyx charges
+		resourceActions += resWithoutCharge / totalChanceToUse;
+
+		// Minimum actions based on limits
+		let expectedActions = Math.ceil(Math.min(masteryXpActions, skillXpActions, poolXpActions, resourceActions));
+
+		// Take away resources based on expectedActions
+		if (expectedActions === resourceActions) {
+			current.resources = 0; // No more limits
+		} else {
+			let resUsed = 0;
+			if (expectedActions < current.chargeUses) {
+				// won't run out of charges yet
+				resUsed = expectedActions * (totalChanceToUse - rhaelyxChargePreservation);
+			} else {
+				// first use charges
+				resUsed = current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation);
+				// remaining actions are without charges
+				resUsed += (expectedActions - current.chargeUses) * totalChanceToUse;
+			}
+			current.resources = Math.round(current.resources - resUsed);
+		}
+		// Update remaining Rhaelyx Charge uses
+		current.chargeUses -= expectedActions;
+		if (current.chargeUses < 0) current.chargeUses = 0;
+
+		// time for current loop
+		let timeToAdd = expectedActions * currentInterval;
+
+		// Update time and Xp
+		current.sumTotalTime += timeToAdd;
+		current.masteryXp += masteryXpPerAction * expectedActions;
+		current.skillXp += xpPerAction * expectedActions;
+		current.poolXp += poolXpPerAction * expectedActions;
+
+		// Time for max pool, 99 Mastery and 99 Skill
+		if (!current.maxPoolReached && initial.maxPoolXp <= current.poolXp) {
+			current.maxPoolTime = current.sumTotalTime;
+			current.maxPoolReached = true;
+		}
+		if (!current.maxMasteryReached && initial.maxMasteryXp <= current.masteryXp) {
+			current.maxMasteryTime = current.sumTotalTime;
+			current.maxMasteryReached = true;
+		}
+		if (!current.maxSkillReached && initial.maxXp <= current.skillXp) {
+			current.maxSkillTime = current.sumTotalTime;
+			current.maxSkillReached = true;
+		}
+
+		// Level up mastery if hitting Mastery limit
+		if (expectedActions === masteryXpActions) current.totalMasteryLevel++;
+
+		// estimate total remaining actions
+		current.actions += expectedActions;
+		return current;
+	}
+
+	// Calculates expected time, taking into account Mastery Level advancements during the craft
+	function calcExpectedTime(initial, resources) {
+		// initialize the expected time variables
+		let current = currentVariables(initial, resources);
 		// Check for Crown of Rhaelyx
-		let RhaelyxChance = 0.15;
-		if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && !tr.skillIsMagic) {
-			for (let i = 0; i < tr.masteryLimLevel.length; i++) {
-				tr.chanceToKeep[i] += 0.10; // Add base 10% chance
+		if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && !initial.skillIsMagic) {
+			for (let i = 0; i < initial.masteryLimLevel.length; i++) {
+				initial.chanceToKeep[i] += 0.10; // Add base 10% chance
 			}
 			let rhaelyxCharge = getQtyOfItem(CONSTANTS.item.Charge_Stone_of_Rhaelyx);
-			tr.chargeUses = rhaelyxCharge * 1000; // average crafts per Rhaelyx Charge Stone
+			current.chargeUses = rhaelyxCharge * 1000; // average crafts per Rhaelyx Charge Stone
 		}
-
-		// counter for estimated number of actions
-		let actions = 0;
-		while (resources > 0) {
-			// Adjustments
-			let currentPreservationAdjustment = preservationAdjustment(tr, currentTotalPoolXP);
-			let totalChanceToUse = 1 - masteryChance(tr, currentTotalMasteryXP, tr.chanceToKeep) - currentPreservationAdjustment;
-			let currentInterval = intervalAdjustment(tr, currentTotalPoolXP, currentTotalMasteryXP);
-
-			// Current Limits
-			let currentMasteryLim = tr.masteryLim.find(element => element > currentTotalMasteryXP);
-			let currentSkillLim = tr.skillLim.find(element => element > currentTotalSkillXP);
-			let currentPoolLim = tr.poolLim.find(element => element > currentTotalPoolXP);
-
-			// Current XP
-			let currentMasteryXP = calcMasteryXpToAdd(tr, currentInterval, currentTotalSkillXP, currentTotalMasteryXP, currentTotalPoolXP, currentTotalMasteryLevelForSkill);
-			let currentSkillXP = skillXPAdjustment(tr, currentTotalPoolXP, currentTotalMasteryXP);
-			let currentPoolXP = calcPoolXPToAdd(currentTotalSkillXP, currentMasteryXP);
-
-			// Distance to Limits
-			let masteryXPToLimit = currentMasteryLim - currentTotalMasteryXP;
-			let skillXPToLimit = currentSkillLim - currentTotalSkillXP;
-			let poolXPToLimit = currentPoolLim - currentTotalPoolXP;
-
-			// Actions to limits
-			let masteryXPActions = masteryXPToLimit / currentMasteryXP;
-			let skillXPActions = skillXPToLimit / currentSkillXP;
-			let poolXPActions = poolXPToLimit / currentPoolXP;
-
-			// estimate amount of actions
-			// number of actions with rhaelyx charges
-			let resourceActions = Math.min(tr.chargeUses, resources / (totalChanceToUse - RhaelyxChance));
-			// remaining resources
-			let resWithoutCharge = Math.max(0, resources - tr.chargeUses);
-			// add number of actions without rhaelyx charges
-			resourceActions += resWithoutCharge / totalChanceToUse;
-
-			// Minimum actions based on limits
-			let expectedActions = Math.ceil(Math.min(masteryXPActions, skillXPActions, poolXPActions, resourceActions));
-
-			// Take away resources based on expectedActions
-			if (expectedActions === resourceActions) {
-				resources = 0; // No more limits
-			} else {
-				let resUsed = 0;
-				if (expectedActions < tr.chargeUses) {
-					// won't run out of charges yet
-					resUsed = expectedActions * (totalChanceToUse - RhaelyxChance);
-				} else {
-					// first use charges
-					resUsed = tr.chargeUses * (totalChanceToUse - RhaelyxChance);
-					// remaining actions are without charges
-					resUsed += (expectedActions - tr.chargeUses) * totalChanceToUse;
-				}
-				resources = Math.round(resources - resUsed);
-			}
-			// Update remaining Rhaelyx Charge uses
-			tr.chargeUses -= expectedActions;
-			if (tr.chargeUses < 0) tr.chargeUses = 0;
-
-			// time for current loop
-			let timeToAdd = expectedActions * currentInterval;
-
-			// Update time and XP
-			sumTotalTime += timeToAdd;
-			currentTotalMasteryXP += currentMasteryXP*expectedActions;
-			currentTotalSkillXP += currentSkillXP*expectedActions;
-			currentTotalPoolXP += currentPoolXP*expectedActions;
-
-			// Time for max pool, 99 Mastery and 99 Skill
-			if (!maxPoolReached && currentTotalPoolXP >= tr.masteryPoolMaxXP) {
-				maxPoolTime = sumTotalTime;
-				maxPoolReached = true;
-			}
-			if (!maxMasteryReached && maxXP <= currentTotalMasteryXP) {
-				maxMasteryTime = sumTotalTime;
-				maxMasteryReached = true;
-			}
-			if (!maxSkillReached && maxXP <= currentTotalSkillXP) {
-				maxSkillTime = sumTotalTime;
-				maxSkillReached = true;
-			}
-
-			// Level up mastery if hitting Mastery limit
-			if ( masteryXPActions === expectedActions ) currentTotalMasteryLevelForSkill++;
-
-			// estimate total remaining actions
-			actions += expectedActions;
+		// loop until out of resources
+		while (current.resources > 0) {
+			current = calcTimeToBreakpoint(initial, current);
 		}
-		let avgXph = (currentTotalSkillXP - tr.initialSkillXP) * 3600 * 1000 / sumTotalTime;
-		let avgMasteryXph = (currentTotalMasteryXP - tr.initialTotalMasteryXP) * 3600 * 1000 / sumTotalTime;
+		// compute current xp/h and mxp/h
+		let initialInterval = intervalAdjustment(initial,  initial.poolXp, initial.masteryXp);
+		let xph = skillXpAdjustment(initial,  initial.poolXp, initial.masteryXp) / initialInterval * 1000 * 3600;
+		// compute current mastery xp / h using the getMasteryXpToAdd from the game
+		let masteryXph = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval) / initialInterval * 1000 * 3600;
+		// alternative: compute through the calcMasteryXpToAdd method from this script, they should be the same !
+		// let masteryXph = calcMasteryXpToAdd(initialInterval, initial.skillXp, initial.masteryXp, initial.poolXp, initial.masteryLevel) / initialInterval * 1000 * 3600;
+
+		// compute average (mastery) xp/h until resources run out
+		let avgXph = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
+		let avgMasteryXph = (current.masteryXp - initial.masteryXp) * 3600 * 1000 / current.sumTotalTime;
+
 		return {
-			"timeLeft" : Math.round(sumTotalTime),
-			"actions": actions,
-			"finalSkillXP" : currentTotalSkillXP,
-			"finalMasteryXP" : currentTotalMasteryXP,
-			"finalPoolPercentage" : Math.min((currentTotalPoolXP / tr.masteryPoolMaxXP) * 100, timeRemainingSettings.UNCAP_POOL ? Infinity : 100).toFixed(2),
-			"maxPoolTime" : maxPoolTime,
-			"maxMasteryTime" : maxMasteryTime,
-			"maxSkillTime" : maxSkillTime,
-			"masteryXPh": timeRemainingSettings.CURRENT_RATES ? masteryXPh : avgMasteryXph,
+			"timeLeft" : Math.round(current.sumTotalTime),
+			"actions": current.actions,
+			"finalSkillXp" : current.skillXp,
+			"finalMasteryXp" : current.masteryXp,
+			"finalPoolPercentage" : Math.min((current.poolXp / initial.maxPoolXp) * 100, timeRemainingSettings.UNCAP_POOL ? Infinity : 100).toFixed(2),
+			"maxPoolTime" : current.maxPoolTime,
+			"maxMasteryTime" : current.maxMasteryTime,
+			"maxSkillTime" : current.maxSkillTime,
+			"masteryXph": timeRemainingSettings.CURRENT_RATES ? masteryXph : avgMasteryXph,
 			"xph" : timeRemainingSettings.CURRENT_RATES ? xph : avgXph,
 		};
 	}
@@ -724,69 +730,69 @@ function script() {
 	// Main function
 	function timeRemaining(skillID) {
 		// populate the main `time remaining` variables
-		let tr = trVariables(skillID);
+		let initial = initialVariables(skillID);
 		// Set current skill and pull matching variables from game with script
-		switch (tr.skillID) {
+		switch (initial.skillID) {
 			case CONSTANTS.skill.Smithing:
-				tr = configureSmithing(tr);
+				initial = configureSmithing(initial);
 				break;
 			case CONSTANTS.skill.Fletching:
-				tr = configureFletching(tr);
+				initial = configureFletching(initial);
 				break;
 			case CONSTANTS.skill.Runecrafting:
-				tr = configureRunecrafting(tr);
+				initial = configureRunecrafting(initial);
 				break;
 			case CONSTANTS.skill.Crafting:
-				tr = configureCrafting(tr);
+				initial = configureCrafting(initial);
 				break;
 			case CONSTANTS.skill.Herblore:
-				tr = configureHerblore(tr);
+				initial = configureHerblore(initial);
 				break;
 			case CONSTANTS.skill.Cooking:
-				tr = configureCooking(tr);
+				initial = configureCooking(initial);
 				break;
 			case CONSTANTS.skill.Firemaking:
-				tr = configureFiremaking(tr);
+				initial = configureFiremaking(initial);
 				break;
 			case CONSTANTS.skill.Magic:
-				tr = configureMagic(tr);
+				initial = configureMagic(initial);
 				break;
 		}
 		// Configure initial mastery values for all skills with masteries
-		if (!tr.skillIsMagic) {
-			tr.initialTotalMasteryPoolXP = MASTERY[tr.skillID].pool;
-			tr.masteryPoolMaxXP = getMasteryPoolTotalXP(tr.skillID);
-			tr.initialTotalMasteryLevelForSkill = getCurrentTotalMasteryLevelForSkill(tr.skillID);
-			tr.masteryID = items[tr.item].masteryID[1];
-			tr.initialTotalMasteryXP = MASTERY[tr.skillID].xp[tr.masteryID];
+		if (!initial.skillIsMagic) {
+			initial.poolXp = MASTERY[initial.skillID].pool;
+			initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
+			initial.totalMasteryLevel = getTotalMasteryLevelForSkill(initial.skillID);
+			initial.masteryID = items[initial.item].masteryID[1];
+			initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
 		}
 
-		// Apply itemXP Bonuses from gear and pets
-		tr.itemXP = addXPBonuses(tr.skillID, tr.itemXP, true);
+		// Apply itemXp Bonuses from gear and pets
+		initial.itemXp = addXPBonuses(initial.skillID, initial.itemXp);
 
 		// Populate masteryLim from masteryLimLevel
-		for (let i = 0; i < tr.masteryLimLevel.length; i++) {
-			tr.masteryLim[i] = convertLvlToXP(tr.masteryLimLevel[i]);
+		for (let i = 0; i < initial.masteryLimLevel.length; i++) {
+			initial.masteryLim[i] = convertLvlToXp(initial.masteryLimLevel[i]);
 		}
 		// Populate skillLim from skillLimLevel
-		for (let i = 0; i < tr.skillLimLevel.length; i++) {
-			tr.skillLim[i] = convertLvlToXP(tr.skillLimLevel[i]);
+		for (let i = 0; i < initial.skillLimLevel.length; i++) {
+			initial.skillLim[i] = convertLvlToXp(initial.skillLimLevel[i]);
 		}
 		// Populate poolLim from masteryCheckpoints
-		for (let i = 0; i < tr.poolLimCheckpoints.length; i++) {
-			tr.poolLim[i] = tr.masteryPoolMaxXP * tr.poolLimCheckpoints[i] / 100;
+		for (let i = 0; i < initial.poolLimCheckpoints.length; i++) {
+			initial.poolLim[i] = initial.maxPoolXp * initial.poolLimCheckpoints[i] / 100;
 		}
 
 		// Get Item Requirements and Current Requirements
-		for (let i = 0; i < tr.skillReq.length; i++) {
-			let	itemReq = tr.skillReq[i].qty;
+		for (let i = 0; i < initial.skillReq.length; i++) {
+			let	itemReq = initial.skillReq[i].qty;
 			//Check how many of required resource in Bank
-			let itemQty = getQtyOfItem(tr.skillReq[i].id);
+			let itemQty = getQtyOfItem(initial.skillReq[i].id);
 			// Calculate max items you can craft for each itemReq
 			let itemCraft = Math.floor(itemQty / itemReq);
 			// Calculate limiting factor and set new record
-			if(itemCraft < tr.recordCraft) {
-				tr.recordCraft = itemCraft;
+			if(itemCraft < initial.recordCraft) {
+				initial.recordCraft = itemCraft;
 			}
 		}
 
@@ -796,10 +802,10 @@ function script() {
 		let timeLeftPool = 0;
 		let timeLeftMastery = 0;
 		let timeLeftSkill = 0;
-		if (tr.skillIsMagic) {
-			timeLeft = Math.round(tr.recordCraft * tr.skillInterval / 1000);
+		if (initial.skillIsMagic) {
+			timeLeft = Math.round(initial.recordCraft * initial.skillInterval / 1000);
 		} else {
-			results = calcExpectedTime(tr, tr.recordCraft);
+			results = calcExpectedTime(initial, initial.recordCraft);
 			timeLeft = Math.round(results.timeLeft / 1000);
 			timeLeftPool = Math.round(results.maxPoolTime / 1000);
 			timeLeftMastery = Math.round(results.maxMasteryTime / 1000);
@@ -812,13 +818,13 @@ function script() {
 
 		//Inject timeLeft HTML
 		let now = new Date();
-		let timeLeftElement = document.getElementById("timeLeft".concat(skillName[tr.skillID]));
+		let timeLeftElement = document.getElementById("timeLeft".concat(skillName[initial.skillID]));
 		if (timeLeftElement !== null) {
 			if (timeLeft !== 0) {
 				let finishedTime = AddSecondsToDate(now, timeLeft);
-				if (timeRemainingSettings.SHOW_XP_RATE && !tr.skillIsMagic) {
-					timeLeftElement.textContent = "XP/h: " + formatNumber(Math.floor(results.xph))
-						+ "\r\nMXP/h: " + formatNumber(Math.floor(results.masteryXPh))
+				if (timeRemainingSettings.SHOW_XP_RATE && !initial.skillIsMagic) {
+					timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xph))
+						+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXph))
 						+ "\r\nActions: " + formatNumber(results.actions)
 						+ "\r\nTime: " + secondsToHms(timeLeft)
 						+ "\r\nFinish: " + DateFormat(now, finishedTime);
@@ -831,7 +837,7 @@ function script() {
 				timeLeftElement.style.display = "none";
 			}
 		}
-		if (!tr.skillIsMagic) {
+		if (!initial.skillIsMagic) {
 			// Generate progression Tooltips
 			if (!timeLeftElement._tippy) {
 				tippy(timeLeftElement, {
@@ -841,17 +847,17 @@ function script() {
 				});
 			}
 			let wrapper = ['<div class="row"><div class="col-6" style="white-space: nowrap;"><h3 class="block-title m-1" style="color:white;" >','</h3></div><div class="col-6" style="white-space: nowrap;"><h3 class="block-title m-1 pl-1"><span class="p-1 bg-',' rounded" style="text-align:center; display: inline-block;line-height: normal;width: 70px;color:white;">','</span>','</h3></div></div>'];
-			let percentageSkill = (getPercentageInLevel(results.finalSkillXP,results.finalSkillXP,"skill")).toFixed(1);
+			let percentageSkill = (getPercentageInLevel(results.finalSkillXp,results.finalSkillXp,"skill")).toFixed(1);
 			let percentageSkillElement = (percentageSkill === 0) ? '' : ` +${percentageSkill}%`;
-			let finalSkillLevelElement = wrapper[0] + 'Final Skill Level ' + wrapper[1] + 'success' + wrapper[2] + convertXPToLvl(results.finalSkillXP,true) + ' / 99' + wrapper[3] + percentageSkillElement + wrapper[4];
+			let finalSkillLevelElement = wrapper[0] + 'Final Skill Level ' + wrapper[1] + 'success' + wrapper[2] + convertXpToLvl(results.finalSkillXp,true) + ' / 99' + wrapper[3] + percentageSkillElement + wrapper[4];
 			let timeLeftSkillElement = '';
 			if (timeLeftSkill > 0){
 				let finishedTimeSkill = AddSecondsToDate(now,timeLeftSkill);
-				timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to ' + timeRemainingSettings.getTargetLevel(tr.skillID) + ': ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
+				timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to ' + timeRemainingSettings.getTargetLevel(initial.skillID) + ': ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
 			}
-			let percentageMastery = (getPercentageInLevel(results.finalMasteryXP,results.finalMasteryXP,"mastery")).toFixed(1);
+			let percentageMastery = (getPercentageInLevel(results.finalMasteryXp,results.finalMasteryXp,"mastery")).toFixed(1);
 			let percentageMasteryElement = (percentageMastery === 0) ? '' : ` +${percentageMastery}%`;
-			let finalMasteryLevelElement = wrapper[0] + 'Final Mastery Level ' + wrapper[1] + 'info' + wrapper[2] + convertXPToLvl(results.finalMasteryXP) + ' / 99' + wrapper[3] + percentageMasteryElement + wrapper[4];
+			let finalMasteryLevelElement = wrapper[0] + 'Final Mastery Level ' + wrapper[1] + 'info' + wrapper[2] + convertXpToLvl(results.finalMasteryXp) + ' / 99' + wrapper[3] + percentageMasteryElement + wrapper[4];
 			let timeLeftMasteryElement = '';
 			if (timeLeftMastery > 0){
 				let finishedTimeMastery = AddSecondsToDate(now,timeLeftMastery);
@@ -867,13 +873,13 @@ function script() {
 			timeLeftElement._tippy.setContent(tooltip);
 
 			let poolProgress = (results.finalPoolPercentage > 100) ?
-				100 - ((tr.initialTotalMasteryPoolXP / tr.masteryPoolMaxXP) * 100) :
-				(results.finalPoolPercentage - ((tr.initialTotalMasteryPoolXP / tr.masteryPoolMaxXP)*100)).toFixed(4);
-			$(`#mastery-pool-progress-end-${tr.skillID}`).css("width", poolProgress + "%");
-			let masteryProgress = getPercentageInLevel(tr.initialTotalMasteryXP,results.finalMasteryXP,"mastery",true);
-			$(`#${tr.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
-			let skillProgress = getPercentageInLevel(tr.initialSkillXP, results.finalSkillXP,"skill",true);
-			$(`#skill-progress-bar-end-${tr.skillID}`).css("width", skillProgress + "%");
+				100 - ((initial.poolXp / initial.maxPoolXp) * 100) :
+				(results.finalPoolPercentage - ((initial.poolXp / initial.maxPoolXp)*100)).toFixed(4);
+			$(`#mastery-pool-progress-end-${initial.skillID}`).css("width", poolProgress + "%");
+			let masteryProgress = getPercentageInLevel(initial.masteryXp,results.finalMasteryXp,"mastery",true);
+			$(`#${initial.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
+			let skillProgress = getPercentageInLevel(initial.skillXp, results.finalSkillXp,"skill",true);
+			$(`#skill-progress-bar-end-${initial.skillID}`).css("width", skillProgress + "%");
 		}
 	}
 
