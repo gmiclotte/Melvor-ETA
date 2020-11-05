@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor TimeRemaining
 // @namespace	http://tampermonkey.net/
-// @version		0.6.2.2-4
+// @version		0.6.2.2-5
 // @description	Shows time remaining for completing a task with your current resources. Takes into account Mastery Levels and other bonuses.
 // @author		Breindahl#2660
 // @match		https://melvoridle.com/*
@@ -340,8 +340,8 @@ function script() {
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
 		initial.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
 		initial.masteryLimLevel.push(Infinity);
-		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
-		initial.skillLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
+		//Breakpoints for mastery bonuses - default all levels starting at 2 to 199, followed by Infinity
+		initial.skillLimLevel = Array.from({ length: 198 }, (_, i) => i + 2);
 		initial.skillLimLevel.push(Infinity);
 		// Chance to keep at breakpoints - default 0.2% per level
 		initial.chanceToKeep = Array.from({ length: 99 }, (_, i) => i *0.002);
@@ -613,18 +613,18 @@ function script() {
 		let currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
 
 		// Current Xp
-		let masteryXpPerAction = calcMasteryXpToAdd(initial, currentInterval, current.skillXp, current.masteryXp, current.poolXp, current.totalMasteryLevel);
 		let xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
+		let masteryXpPerAction = calcMasteryXpToAdd(initial, currentInterval, current.skillXp, current.masteryXp, current.poolXp, current.totalMasteryLevel);
 		let poolXpPerAction = calcPoolXpToAdd(current.skillXp, masteryXpPerAction);
 
 		// Distance to Limits
-		let masteryXpToLimit = initial.masteryLim.find(element => element > current.masteryXp) - current.masteryXp;
 		let skillXpToLimit = initial.skillLim.find(element => element > current.skillXp) - current.skillXp;
+		let masteryXpToLimit = initial.masteryLim.find(element => element > current.masteryXp) - current.masteryXp;
 		let poolXpToLimit = initial.poolLim.find(element => element > current.poolXp) - current.poolXp;
 
 		// Actions to limits
-		let masteryXpActions = masteryXpToLimit / masteryXpPerAction;
 		let skillXpActions = skillXpToLimit / xpPerAction;
+		let masteryXpActions = masteryXpToLimit / masteryXpPerAction;
 		let poolXpActions = poolXpToLimit / poolXpPerAction;
 
 		// Minimum actions based on limits
@@ -640,7 +640,12 @@ function script() {
 			// add number of actions without rhaelyx charges
 			resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
 			expectedActions = Math.min(expectedActions, resourceActions);
-
+			// Update remaining Rhaelyx Charge uses
+			current.chargeUses -= expectedActions;
+			if (current.chargeUses < 0) {
+				current.chargeUses = 0;
+			}
+			// Update remaining resources
 			if (expectedActions === resourceActions) {
 				current.resources = 0; // No more limits
 			} else {
@@ -656,39 +661,35 @@ function script() {
 				}
 				current.resources = Math.round(current.resources - resUsed);
 			}
-			// Update remaining Rhaelyx Charge uses
-			current.chargeUses -= expectedActions;
-			if (current.chargeUses < 0) current.chargeUses = 0;
+			// estimate total remaining actions
+			current.actions += expectedActions;
 		}
 
 		// time for current loop
 		let timeToAdd = expectedActions * currentInterval;
-
 		// Update time and Xp
 		current.sumTotalTime += timeToAdd;
-		current.masteryXp += masteryXpPerAction * expectedActions;
 		current.skillXp += xpPerAction * expectedActions;
+		current.masteryXp += masteryXpPerAction * expectedActions;
 		current.poolXp += poolXpPerAction * expectedActions;
-
-		// Time for max pool, 99 Mastery and 99 Skill
-		if (!current.maxPoolReached && initial.maxPoolXp <= current.poolXp) {
-			current.maxPoolTime = current.sumTotalTime;
-			current.maxPoolReached = true;
+		// Time for target skill level, 99 mastery, and 100% pool
+		if (!current.maxSkillReached && initial.maxXp <= current.skillXp) {
+			current.maxSkillTime = current.sumTotalTime;
+			current.maxSkillReached = true;
 		}
 		if (!current.maxMasteryReached && initial.maxMasteryXp <= current.masteryXp) {
 			current.maxMasteryTime = current.sumTotalTime;
 			current.maxMasteryReached = true;
 		}
-		if (!current.maxSkillReached && initial.maxXp <= current.skillXp) {
-			current.maxSkillTime = current.sumTotalTime;
-			current.maxSkillReached = true;
+		if (!current.maxPoolReached && initial.maxPoolXp <= current.poolXp) {
+			current.maxPoolTime = current.sumTotalTime;
+			current.maxPoolReached = true;
 		}
-
 		// Level up mastery if hitting Mastery limit
-		if (expectedActions === masteryXpActions) current.totalMasteryLevel++;
-
-		// estimate total remaining actions
-		current.actions += expectedActions;
+		if (expectedActions === masteryXpActions) {
+			current.totalMasteryLevel++;
+		}
+		// return updated values
 		return current;
 	}
 
@@ -715,13 +716,11 @@ function script() {
 		let masteryXph = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval) / initialInterval * 1000 * 3600;
 		// alternative: compute through the calcMasteryXpToAdd method from this script, they should be the same !
 		// let masteryXph = calcMasteryXpToAdd(initialInterval, initial.skillXp, initial.masteryXp, initial.poolXp, initial.masteryLevel) / initialInterval * 1000 * 3600;
-
 		// compute average (mastery) xp/h until resources run out
 		let avgXph = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
 		let avgMasteryXph = (current.masteryXp - initial.masteryXp) * 3600 * 1000 / current.sumTotalTime;
-
-		return {
-			"timeLeft" : Math.round(current.sumTotalTime),
+		let expectedTime = {
+			"timeLeft" :  Math.round(current.sumTotalTime),
 			"actions": current.actions,
 			"finalSkillXp" : current.skillXp,
 			"finalMasteryXp" : current.masteryXp,
@@ -732,6 +731,14 @@ function script() {
 			"masteryXph": timeRemainingSettings.CURRENT_RATES ? masteryXph : avgMasteryXph,
 			"xph" : timeRemainingSettings.CURRENT_RATES ? xph : avgXph,
 		};
+		//
+		while(!current.maxSkillReached || !current.maxMasteryReached || !current.maxPoolReached) {
+			current = calcTimeToBreakpoint(initial, current, true);
+		}
+		expectedTime.maxSkillTime = current.maxSkillTime;
+		expectedTime.maxMasteryTime = current.maxMasteryTime;
+		expectedTime.maxPoolTime = current.maxPoolTime;
+		return expectedTime;
 	}
 
 	// Main function
