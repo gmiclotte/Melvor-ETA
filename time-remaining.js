@@ -166,7 +166,11 @@ function script() {
 	// Format date 24 hour clock
 	function DateFormat(now, then, is12h = timeRemainingSettings.IS_12H_CLOCK, isShortClock = timeRemainingSettings.IS_SHORT_CLOCK){
 		let days = daysBetween(now, then);
-		days = (days === 0) ? "" : (days === 1) ? " tomorrow" : ` + ${days}` + (isShortClock ? "d" : " days");
+		if (isShortClock) {
+			days = (days === 0) ? "" : ` + ${days}d`;
+		} else {
+			days = (days === 0) ? "" : (days === 1) ? " tomorrow" : ` + ${days} days`;
+		}
 		let hours = then.getHours();
 		let minutes = then.getMinutes();
 		// convert to 12h clock if required
