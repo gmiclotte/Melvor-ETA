@@ -352,7 +352,10 @@ function script() {
 			recordCraft: Infinity, // Amount of craftable items for limiting resource
 			isMagic: skillID === CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
 			// gathering skills are treated differently, so we often check this
-			isGathering: skillID === CONSTANTS.skill.Woodcutting || CONSTANTS.skill.Fishing || CONSTANTS.skill.Mining || CONSTANTS.skill.Thieving,
+			isGathering: skillID === CONSTANTS.skill.Woodcutting
+				|| skillID === CONSTANTS.skill.Fishing
+				|| skillID === CONSTANTS.skill.Mining
+				|| skillID === CONSTANTS.skill.Thieving,
 			// Generate default values for script
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
 			maxXp: convertLvlToXp(timeRemainingSettings.getTargetLevel(skillID)),
