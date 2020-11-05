@@ -1,20 +1,18 @@
 // ==UserScript==
-// @name		Melvor TimeRemaining
+// @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.6.2.2-5
-// @description	Shows time remaining for completing a task with your current resources. Takes into account Mastery Levels and other bonuses.
-// @author		Breindahl#2660
+// @version		0.0.1-0.17
+// @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
+// @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
+// @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
+// @description	Forked from Breindahl#2660's Melvor TimeRemaining script v0.6.2.2.
+// @author		GMiclotte
 // @match		https://melvoridle.com/*
 // @match		https://www.melvoridle.com/*
-// @match		https://melvoridle.com/*
 // @match		https://test.melvoridle.com/*
 // @grant		none
 // ==/UserScript==
 /* jshint esversion: 9 */
-
-// Note that this script is made for Melvor Idle version 0.17
-// Later versions might break parts of this script
-// Big thanks to Xhaf#6478 and Visua#9999 for helping with parts of the code and troubleshooting
 
 // settings can be toggled from the console, or edited here
 window.timeRemainingSettings = {
