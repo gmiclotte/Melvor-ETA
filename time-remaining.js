@@ -926,6 +926,9 @@ function script() {
 		if (initial.isGathering) {
 			timeLeftElementId += "-" + initial.currentAction;
 		}
+		if (initial.skillID === CONSTANTS.skill.Thieving && document.getElementById(timeLeftElementId) === null) {
+			makeThievingDisplay();
+		}
 		let timeLeftElement = document.getElementById(timeLeftElementId);
 		if (timeLeftElement !== null) {
 			let finishedTime = AddSecondsToDate(now, timeLeft);
@@ -1060,6 +1063,27 @@ function script() {
 		};
 	});
 
+	const changePageRef = changePage;
+	changePage = function(...args) {
+		let skillName = undefined;
+		switch (args[0]) {
+			case 10:
+				skillName = "Mining";
+				break;
+			case 14:
+				skillName = "Thieving";
+				break;
+		}
+		if (skillName !== undefined) {
+			try {
+				timeRemainingWrapper(CONSTANTS.skill[skillName]);
+			} catch (e) {
+				console.error(e);
+			}
+		}
+		changePageRef(...args);
+	};
+
 	// Create timeLeft containers
 	let TempContainer = ['<div class="font-size-sm font-w600 text-uppercase text-center text-muted"><small id ="','" class="mb-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
 	let TempContainerAlt = ['<div class="font-size-sm text-uppercase text-muted"><small id ="','" class="mt-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
@@ -1077,11 +1101,12 @@ function script() {
 			$(`#mining-ore-img-${i}`).before(TempContainer[0] + `timeLeftMining-${i}` + TempContainer[1])
 		});
 	}
-	{
+	function makeThievingDisplay() {
 		thievingNPC.forEach((_, i) => {
 			$(`#success-rate-${i}`).parent().after(TempContainer[0] + `timeLeftThieving-${i}` + TempContainer[1])
 		});
 	}
+	makeThievingDisplay(); // this is a function because in some scenarios the thieving display disappears, so we need to remake it
 
 	// Mastery Pool progress
 	for(let id in SKILLS) {
