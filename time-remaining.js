@@ -60,44 +60,6 @@ function script() {
 		}
 	}
 
-	// Create timeLeft containers
-	let TempContainer = ['<div class="font-size-sm font-w600 text-uppercase text-center text-muted"><small id ="','" class="mb-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
-	let TempContainerAlt = ['<div class="font-size-sm text-uppercase text-muted"><small id ="','" class="mt-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
-
-	$("#smith-item-have").after(TempContainer[0] + "timeLeftSmithing" + TempContainer[1]);
-	$("#fletch-item-have").after(TempContainer[0] + "timeLeftFletching" + TempContainer[1]);
-	$("#runecraft-item-have").after(TempContainer[0] + "timeLeftRunecrafting" + TempContainer[1]);
-	$("#craft-item-have").after(TempContainer[0] + "timeLeftCrafting" + TempContainer[1]);
-	$("#herblore-item-have").after(TempContainer[0] + "timeLeftHerblore" + TempContainer[1]);
-	$("#skill-cooking-food-selected-qty").after(TempContainerAlt[0] + "timeLeftCooking" + TempContainerAlt[1]);
-	$("#skill-fm-logs-selected-qty").after(TempContainerAlt[0] + "timeLeftFiremaking" + TempContainerAlt[1]);
-	$("#magic-item-have-and-div").after(TempContainer[0] + "timeLeftMagic" + TempContainer[1]);
-
-	// Mastery Pool progress
-	for(let id in SKILLS) {
-		if(SKILLS[id].hasMastery) {
-			let bar = $(`#mastery-pool-progress-${id}`)[0];
-			$(bar).after(`<div id="mastery-pool-progress-end-${id}" class="progress-bar bg-warning" role="progressbar" style="width: 0%; background-color: #e5ae679c !important;"></div>`);
-		}
-	}
-
-	// Mastery Progress bars
-	for(let id in SKILLS) {
-		if(SKILLS[id].hasMastery) {
-			let name = skillName[id].toLowerCase();
-			let bar = $(`#${name}-mastery-progress`)[0];
-			$(bar).after(`<div id="${id}-mastery-pool-progress-end" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
-		}
-	}
-
-	// Mastery Skill progress
-	for(let id in SKILLS) {
-		if(SKILLS[id].hasMastery) {
-			let bar = $(`#skill-progress-bar-${id}`)[0];
-			$(bar).after(`<div id="skill-progress-bar-end-${id}" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
-		}
-	}
-
 	// Function to get unformatted number for Qty
 	function getQtyOfItem(itemID) {
 		for (let i = 0; i < bank.length; i++) {
@@ -252,12 +214,71 @@ function script() {
 				if (poolXp >= initial.poolLim[3]) adjustedInterval -= 200;
 				break;
 
-			case CONSTANTS.skill.Firemaking: {
+			case CONSTANTS.skill.Firemaking:
 				if (poolXp >= initial.poolLim[1]) adjustedInterval *= 0.9;
 				let decreasedBurnInterval = 1 - convertXpToLvl(masteryXp) * 0.001;
 				adjustedInterval *= decreasedBurnInterval;
 				break;
-			}
+
+			case CONSTANTS.skill.Mining:
+				// pool bonus speed
+				if (poolXp >= initial.poolLim[2]) {
+					adjustedInterval -= 200;
+				}
+				break;
+		}
+		return adjustedInterval;
+	}
+
+	// Adjust interval based on unlocked bonuses
+	function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) {
+		let adjustedInterval = currentInterval;
+		switch (initial.skillID) {
+			case CONSTANTS.skill.Mining:
+				// compute max rock HP
+				let rockHP = 5 /*base*/ + convertXpToLvl(masteryXp);
+				if (petUnlocked[4]) {
+					rockHP += 5;
+				}
+				if (poolXp >= initial.poolLim[3]) {
+					rockHP += 10;
+				}
+				// potions can preserve rock HP
+				let preservation = herbloreBonuses[10].bonus[1]
+				if (preservation !== null) {
+					rockHP /= (1 - preservation / 100);
+				}
+				// compute average time per action
+				let spawnTime = miningData[initial.currentAction].respawnInterval;
+				adjustedInterval = (adjustedInterval * rockHP + spawnTime) / rockHP;
+				break;
+
+			case CONSTANTS.skill.Thieving:
+				let successRate = 0;
+				if (convertXpToLvl(masteryXp) >= 99) {
+					successRate = 100;
+				} else {
+					let increasedSuccess = 0;
+					if (poolXp >= initial.poolLim[1]) {
+						increasedSuccess = 10;
+					}
+					successRate = Math.floor((skillLevel[CONSTANTS.skill.Thieving] - thievingNPC[npcID].level) * 0.7
+						+ convertXpToLvl(masteryXp) * 0.25
+						+ thievingNPC[npcID].baseSuccess) + increasedSuccess;
+				}
+				if (successRate > thievingNPC[npcID].maxSuccess && convertXpToLvl(masteryXp) < 99) {
+					successRate = thievingNPC[npcID].maxSuccess;
+				}
+				if (glovesTracker[CONSTANTS.shop.gloves.Thieving].isActive
+					&& glovesTracker[CONSTANTS.shop.gloves.Thieving].remainingActions > 0 // TODO: handle charge use
+					&& equippedItems[CONSTANTS.equipmentSlot.Gloves] === CONSTANTS.item.Thieving_Gloves) {
+					successRate += 10;
+				}
+				successRate = Math.max(100, successRate) / 100;
+				// compute average time per action
+				let stunTime = 3000;
+				adjustedInterval = adjustedInterval * successRate + stunTime * (1 - successRate);
+				break;
 		}
 		return adjustedInterval;
 	}
@@ -331,7 +352,9 @@ function script() {
 			poolLim: [], // Xp need to reach next pool checkpoint
 			skillReq: [], // Needed items for craft and their quantities
 			recordCraft: Infinity, // Amount of craftable items for limiting resource
-			skillIsMagic: skillID === CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
+			isMagic: skillID === CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
+			// gathering skills are treated differently, so we often check this
+			isGathering: skillID === CONSTANTS.skill.Woodcutting || CONSTANTS.skill.Fishing || CONSTANTS.skill.Mining || CONSTANTS.skill.Thieving,
 			// Generate default values for script
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
 			maxXp: convertLvlToXp(timeRemainingSettings.getTargetLevel(skillID)),
@@ -468,7 +491,6 @@ function script() {
 				initial.skillReq.push({...i});
 			}
 		}
-
 		// Get Rune discount
 		for (let i = 0; i < initial.skillReq.length; i++) {
 			if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune !== undefined) {
@@ -500,6 +522,32 @@ function script() {
 		initial.masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
 		initial.chanceToKeep = [0]; //Thus no chance to keep
 		return initial;
+	}
+
+	function configureGathering(initial) {
+		initial.skillReq = [];
+		initial.chanceToKeep = initial.chanceToKeep.map(_ => 0); // No chance to keep for gathering
+		initial.recordCraft = 0;
+		return initial;
+	}
+
+	function configureMining(initial) {
+		initial.item = miningData[initial.currentAction].ore;
+		initial.itemXp = items[initial.item].miningXP;
+		initial.skillInterval = 3000;
+		if (godUpgrade[2]) initial.skillInterval *= 0.8;
+		initial.skillInterval *= 1 - pickaxeBonusSpeed[currentPickaxe] / 100;
+		return configureGathering(initial);
+	}
+
+	function configureThieving(initial) {
+		initial.item = thievingNPC[initial.currentAction];
+		initial.itemXp = initial.item.xp;
+		initial.skillInterval = 3000;
+		if (skillCapeEquipped(CONSTANTS.item.Thieving_Skillcape)) {
+			initial.skillInterval -= 500;
+		}
+		return configureGathering(initial);
 	}
 
 	// Calculate mastery xp based on unlocked bonuses
@@ -611,6 +659,7 @@ function script() {
 		// Adjustments
 		let totalChanceToUse = 1 - masteryPreservation(initial, current.masteryXp, initial.chanceToKeep) - poolPreservation(initial, current.poolXp);
 		let currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
+		let averageActionTime = intervalRespawnAdjustment(initial, currentInterval, current.poolXp, current.masteryXp);
 
 		// Current Xp
 		let xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
@@ -666,7 +715,7 @@ function script() {
 		}
 
 		// time for current loop
-		let timeToAdd = expectedActions * currentInterval;
+		let timeToAdd = expectedActions * averageActionTime;
 		// Update time and Xp
 		current.sumTotalTime += timeToAdd;
 		current.skillXp += xpPerAction * expectedActions;
@@ -698,7 +747,7 @@ function script() {
 		// initialize the expected time variables
 		let current = currentVariables(initial, resources);
 		// Check for Crown of Rhaelyx
-		if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && !initial.skillIsMagic) {
+		if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && !initial.isMagic) {
 			for (let i = 0; i < initial.masteryLimLevel.length; i++) {
 				initial.chanceToKeep[i] += 0.10; // Add base 10% chance
 			}
@@ -711,29 +760,36 @@ function script() {
 		}
 		// compute current xp/h and mxp/h
 		let initialInterval = intervalAdjustment(initial,  initial.poolXp, initial.masteryXp);
-		let xph = skillXpAdjustment(initial,  initial.poolXp, initial.masteryXp) / initialInterval * 1000 * 3600;
+		let initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
+		let xph = skillXpAdjustment(initial,  initial.poolXp, initial.masteryXp) / initialAverageActionTime * 1000 * 3600;
 		// compute current mastery xp / h using the getMasteryXpToAdd from the game
-		let masteryXph = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval) / initialInterval * 1000 * 3600;
+		let masteryXph = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval) / initialAverageActionTime * 1000 * 3600;
 		// alternative: compute through the calcMasteryXpToAdd method from this script, they should be the same !
-		// let masteryXph = calcMasteryXpToAdd(initialInterval, initial.skillXp, initial.masteryXp, initial.poolXp, initial.masteryLevel) / initialInterval * 1000 * 3600;
+		// let masteryXph = calcMasteryXpToAdd(initialInterval, initial.skillXp, initial.masteryXp, initial.poolXp, initial.masteryLevel) / initialAverageActionTime * 1000 * 3600;
 		// compute average (mastery) xp/h until resources run out
 		let avgXph = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
 		let avgMasteryXph = (current.masteryXp - initial.masteryXp) * 3600 * 1000 / current.sumTotalTime;
+		const poolXpToPercentage = (poolXp, maxPoolXp) => Math.min((poolXp / maxPoolXp) * 100, timeRemainingSettings.UNCAP_POOL ? Infinity : 100).toFixed(2);
 		let expectedTime = {
 			"timeLeft" :  Math.round(current.sumTotalTime),
 			"actions": current.actions,
 			"finalSkillXp" : current.skillXp,
 			"finalMasteryXp" : current.masteryXp,
-			"finalPoolPercentage" : Math.min((current.poolXp / initial.maxPoolXp) * 100, timeRemainingSettings.UNCAP_POOL ? Infinity : 100).toFixed(2),
+			"finalPoolPercentage" : poolXpToPercentage(current.poolXp, initial.maxPoolXp),
 			"maxPoolTime" : current.maxPoolTime,
 			"maxMasteryTime" : current.maxMasteryTime,
 			"maxSkillTime" : current.maxSkillTime,
-			"masteryXph": timeRemainingSettings.CURRENT_RATES ? masteryXph : avgMasteryXph,
-			"xph" : timeRemainingSettings.CURRENT_RATES ? xph : avgXph,
+			"masteryXph": timeRemainingSettings.CURRENT_RATES || initial.isGathering ? masteryXph : avgMasteryXph,
+			"xph" : timeRemainingSettings.CURRENT_RATES || initial.isGathering ? xph : avgXph,
 		};
 		//
 		while(!current.maxSkillReached || !current.maxMasteryReached || !current.maxPoolReached) {
 			current = calcTimeToBreakpoint(initial, current, true);
+		}
+		if (initial.isGathering) {
+			expectedTime.finalSkillXp = current.skillXp;
+			expectedTime.finalMasteryXp = current.masteryXp;
+			expectedTime.finalPoolPercentage = poolXpToPercentage(current.poolXp, initial.maxPoolXp);
 		}
 		expectedTime.maxSkillTime = current.maxSkillTime;
 		expectedTime.maxMasteryTime = current.maxMasteryTime;
@@ -741,10 +797,32 @@ function script() {
 		return expectedTime;
 	}
 
-	// Main function
-	function timeRemaining(skillID) {
+	function timeRemainingWrapper(skillID) {
 		// populate the main `time remaining` variables
 		let initial = initialVariables(skillID);
+		if (initial.isGathering) {
+			let data = [];
+			switch (initial.skillID) {
+				case CONSTANTS.skill.Mining:
+					data = miningData;
+					break;
+
+				case CONSTANTS.skill.Thieving:
+					data = thievingNPC;
+					break;
+
+			}
+			data.forEach((_, i) => {
+				initial.currentAction = i;
+				timeRemaining(initial)
+			});
+		} else {
+			timeRemaining(initial);
+		}
+	}
+
+	// Main function
+	function timeRemaining(initial) {
 		// Set current skill and pull matching variables from game with script
 		switch (initial.skillID) {
 			case CONSTANTS.skill.Smithing:
@@ -771,13 +849,23 @@ function script() {
 			case CONSTANTS.skill.Magic:
 				initial = configureMagic(initial);
 				break;
+			case CONSTANTS.skill.Mining:
+				initial = configureMining(initial);
+				break;
+			case CONSTANTS.skill.Thieving:
+				initial = configureThieving(initial);
+				break;
 		}
 		// Configure initial mastery values for all skills with masteries
-		if (!initial.skillIsMagic) {
+		if (!initial.isMagic) {
 			initial.poolXp = MASTERY[initial.skillID].pool;
 			initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
 			initial.totalMasteryLevel = getTotalMasteryLevelForSkill(initial.skillID);
-			initial.masteryID = items[initial.item].masteryID[1];
+			if (initial.skillID === CONSTANTS.skill.Thieving) {
+				initial.masteryID = initial.currentAction;
+			} else {
+				initial.masteryID = items[initial.item].masteryID[1];
+			}
 			initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
 		}
 
@@ -816,7 +904,7 @@ function script() {
 		let timeLeftPool = 0;
 		let timeLeftMastery = 0;
 		let timeLeftSkill = 0;
-		if (initial.skillIsMagic) {
+		if (initial.isMagic) {
 			timeLeft = Math.round(initial.recordCraft * initial.skillInterval / 1000);
 		} else {
 			results = calcExpectedTime(initial, initial.recordCraft);
@@ -832,26 +920,28 @@ function script() {
 
 		//Inject timeLeft HTML
 		let now = new Date();
-		let timeLeftElement = document.getElementById("timeLeft".concat(skillName[initial.skillID]));
-		if (timeLeftElement !== null) {
-			if (timeLeft !== 0) {
-				let finishedTime = AddSecondsToDate(now, timeLeft);
-				if (timeRemainingSettings.SHOW_XP_RATE && !initial.skillIsMagic) {
-					timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xph))
-						+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXph))
-						+ "\r\nActions: " + formatNumber(results.actions)
-						+ "\r\nTime: " + secondsToHms(timeLeft)
-						+ "\r\nFinish: " + DateFormat(now, finishedTime);
-				} else {
-					timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
-				}
-				timeLeftElement.style.display = "block";
-			} else {
-				// empty and reset if no time
-				timeLeftElement.style.display = "none";
-			}
+		let timeLeftElementId = "timeLeft".concat(skillName[initial.skillID]);
+		if (initial.isGathering) {
+			timeLeftElementId += "-" + initial.currentAction;
 		}
-		if (!initial.skillIsMagic) {
+		let timeLeftElement = document.getElementById(timeLeftElementId);
+		if (timeLeftElement !== null) {
+			let finishedTime = AddSecondsToDate(now, timeLeft);
+			if (timeRemainingSettings.SHOW_XP_RATE && !initial.isMagic && !initial.isGathering) {
+				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xph))
+					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXph))
+					+ "\r\nActions: " + formatNumber(results.actions)
+					+ "\r\nTime: " + secondsToHms(timeLeft)
+					+ "\r\nFinish: " + DateFormat(now, finishedTime);
+			} else if(initial.isGathering) {
+				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xph))
+					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXph));
+			} else {
+				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
+			}
+			timeLeftElement.style.display = "block";
+		}
+		if (!initial.isMagic) {
 			// Generate progression Tooltips
 			if (!timeLeftElement._tippy) {
 				tippy(timeLeftElement, {
@@ -902,6 +992,7 @@ function script() {
 	const startRef = {};
 	[	// skill name, select names, < start name >
 		// start name is only required if the start method is not of the form `start${skill name}`
+		// production skills
 		["Smithing", ["Smith"]],
 		["Fletching", ["Fletch"]],
 		["Runecrafting", ["Runecraft"]],
@@ -909,7 +1000,9 @@ function script() {
 		["Herblore", ["Herblore"]],
 		["Cooking", ["Food"]],
 		["Firemaking", ["Log"], "burnLog"],
+		// alt magic
 		["Magic", ["Magic", "ItemForMagic"], "castMagic"],
+		// gathering skills go in a the next loop
 	].forEach(skill => {
 		let skillName = skill[0];
 		// wrap the select methods
@@ -921,7 +1014,7 @@ function script() {
 			window[selectName] = function(...args) {
 				selectRef[selectName](...args);
 				try {
-					timeRemaining(CONSTANTS.skill[skillName]);
+					timeRemainingWrapper(CONSTANTS.skill[skillName]);
 				} catch (e) {
 					console.error(e);
 				}
@@ -938,13 +1031,80 @@ function script() {
 		window[startName] = function(...args) {
 			startRef[skillName](...args);
 			try {
-				timeRemaining(CONSTANTS.skill[skillName]);
+				timeRemainingWrapper(CONSTANTS.skill[skillName]);
 				taskComplete(CONSTANTS.skill[skillName]);
 			} catch (e) {
 				console.error(e);
 			}
 		};
 	});
+	[	// skill name, start name
+		// gathering skills
+		["Mining", "mineRock"],
+		["Thieving", "pickpocket"],
+	].forEach(skill => {
+		let skillName = skill[0];
+		// wrap the start method
+		let startName = skill[1];
+		// original methods are kept in the startRef object
+		startRef[skillName] = window[startName];
+		window[startName] = function(...args) {
+			startRef[skillName](...args);
+			try {
+				timeRemainingWrapper(CONSTANTS.skill[skillName]);
+			} catch (e) {
+				console.error(e);
+			}
+		};
+	});
+
+	// Create timeLeft containers
+	let TempContainer = ['<div class="font-size-sm font-w600 text-uppercase text-center text-muted"><small id ="','" class="mb-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
+	let TempContainerAlt = ['<div class="font-size-sm text-uppercase text-muted"><small id ="','" class="mt-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
+
+	$("#smith-item-have").after(TempContainer[0] + "timeLeftSmithing" + TempContainer[1]);
+	$("#fletch-item-have").after(TempContainer[0] + "timeLeftFletching" + TempContainer[1]);
+	$("#runecraft-item-have").after(TempContainer[0] + "timeLeftRunecrafting" + TempContainer[1]);
+	$("#craft-item-have").after(TempContainer[0] + "timeLeftCrafting" + TempContainer[1]);
+	$("#herblore-item-have").after(TempContainer[0] + "timeLeftHerblore" + TempContainer[1]);
+	$("#skill-cooking-food-selected-qty").after(TempContainerAlt[0] + "timeLeftCooking" + TempContainerAlt[1]);
+	$("#skill-fm-logs-selected-qty").after(TempContainerAlt[0] + "timeLeftFiremaking" + TempContainerAlt[1]);
+	$("#magic-item-have-and-div").after(TempContainer[0] + "timeLeftMagic" + TempContainer[1]);
+	{
+		miningData.forEach((_, i) => {
+			$(`#mining-ore-img-${i}`).before(TempContainer[0] + `timeLeftMining-${i}` + TempContainer[1])
+		});
+	}
+	{
+		thievingNPC.forEach((_, i) => {
+			$(`#success-rate-${i}`).before(TempContainer[0] + `timeLeftThieving-${i}` + TempContainer[1])
+		});
+	}
+
+	// Mastery Pool progress
+	for(let id in SKILLS) {
+		if(SKILLS[id].hasMastery) {
+			let bar = $(`#mastery-pool-progress-${id}`)[0];
+			$(bar).after(`<div id="mastery-pool-progress-end-${id}" class="progress-bar bg-warning" role="progressbar" style="width: 0%; background-color: #e5ae679c !important;"></div>`);
+		}
+	}
+
+	// Mastery Progress bars
+	for(let id in SKILLS) {
+		if(SKILLS[id].hasMastery) {
+			let name = skillName[id].toLowerCase();
+			let bar = $(`#${name}-mastery-progress`)[0];
+			$(bar).after(`<div id="${id}-mastery-pool-progress-end" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
+		}
+	}
+
+	// Mastery Skill progress
+	for(let id in SKILLS) {
+		if(SKILLS[id].hasMastery) {
+			let bar = $(`#skill-progress-bar-${id}`)[0];
+			$(bar).after(`<div id="skill-progress-bar-end-${id}" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
+		}
+	}
 }
 
 // inject the script
@@ -964,5 +1124,5 @@ function script() {
 		}
 	}
 
-	const scriptLoader = setInterval(loadScript, 200);
+	const scriptLoader = setInterval(loadScript, 1000);
 })();
