@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.0.2-0.17
+// @version		0.0.3-0.17
 // @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
 // @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
@@ -253,6 +253,7 @@ function script() {
 
 			case CONSTANTS.skill.Thieving:
 				let successRate = 0;
+				let npc = thievingNPC[initial.currentAction];
 				if (convertXpToLvl(masteryXp) >= 99) {
 					successRate = 100;
 				} else {
@@ -260,12 +261,12 @@ function script() {
 					if (poolXp >= initial.poolLim[1]) {
 						increasedSuccess = 10;
 					}
-					successRate = Math.floor((skillLevel[CONSTANTS.skill.Thieving] - thievingNPC[npcID].level) * 0.7
+					successRate = Math.floor((skillLevel[CONSTANTS.skill.Thieving] - npc.level) * 0.7
 						+ convertXpToLvl(masteryXp) * 0.25
-						+ thievingNPC[npcID].baseSuccess) + increasedSuccess;
+						+ npc.baseSuccess) + increasedSuccess;
 				}
-				if (successRate > thievingNPC[npcID].maxSuccess && convertXpToLvl(masteryXp) < 99) {
-					successRate = thievingNPC[npcID].maxSuccess;
+				if (successRate > npc.maxSuccess && convertXpToLvl(masteryXp) < 99) {
+					successRate = npc.maxSuccess;
 				}
 				if (glovesTracker[CONSTANTS.shop.gloves.Thieving].isActive
 					&& glovesTracker[CONSTANTS.shop.gloves.Thieving].remainingActions > 0 // TODO: handle charge use
@@ -1078,7 +1079,7 @@ function script() {
 	}
 	{
 		thievingNPC.forEach((_, i) => {
-			$(`#success-rate-${i}`).before(TempContainer[0] + `timeLeftThieving-${i}` + TempContainer[1])
+			$(`#success-rate-${i}`).parent().after(TempContainer[0] + `timeLeftThieving-${i}` + TempContainer[1])
 		});
 	}
 
