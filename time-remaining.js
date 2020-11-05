@@ -605,7 +605,7 @@ function script() {
 		return current;
 	}
 
-	function calcTimeToBreakpoint(initial, current) {
+	function calcTimeToBreakpoint(initial, current, noResources = false) {
 		const rhaelyxChargePreservation = 0.15;
 
 		// Adjustments
@@ -627,36 +627,39 @@ function script() {
 		let skillXpActions = skillXpToLimit / xpPerAction;
 		let poolXpActions = poolXpToLimit / poolXpPerAction;
 
-		// estimate amount of actions
-		// number of actions with rhaelyx charges
-		let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
-		// remaining resources
-		let resWithoutCharge = Math.max(0, current.resources - current.chargeUses);
-		// add number of actions without rhaelyx charges
-		resourceActions += resWithoutCharge / totalChanceToUse;
-
 		// Minimum actions based on limits
-		let expectedActions = Math.ceil(Math.min(masteryXpActions, skillXpActions, poolXpActions, resourceActions));
+		let expectedActions = Math.ceil(Math.min(masteryXpActions, skillXpActions, poolXpActions));
 
 		// Take away resources based on expectedActions
-		if (expectedActions === resourceActions) {
-			current.resources = 0; // No more limits
-		} else {
-			let resUsed = 0;
-			if (expectedActions < current.chargeUses) {
-				// won't run out of charges yet
-				resUsed = expectedActions * (totalChanceToUse - rhaelyxChargePreservation);
+		if (!noResources) {
+			// estimate amount of actions possible with remaining resources
+			// number of actions with rhaelyx charges
+			let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
+			// remaining resources
+			let resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation));
+			// add number of actions without rhaelyx charges
+			resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
+			expectedActions = Math.min(expectedActions, resourceActions);
+
+			if (expectedActions === resourceActions) {
+				current.resources = 0; // No more limits
 			} else {
-				// first use charges
-				resUsed = current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation);
-				// remaining actions are without charges
-				resUsed += (expectedActions - current.chargeUses) * totalChanceToUse;
+				let resUsed = 0;
+				if (expectedActions < current.chargeUses) {
+					// won't run out of charges yet
+					resUsed = expectedActions * (totalChanceToUse - rhaelyxChargePreservation);
+				} else {
+					// first use charges
+					resUsed = current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation);
+					// remaining actions are without charges
+					resUsed += (expectedActions - current.chargeUses) * totalChanceToUse;
+				}
+				current.resources = Math.round(current.resources - resUsed);
 			}
-			current.resources = Math.round(current.resources - resUsed);
+			// Update remaining Rhaelyx Charge uses
+			current.chargeUses -= expectedActions;
+			if (current.chargeUses < 0) current.chargeUses = 0;
 		}
-		// Update remaining Rhaelyx Charge uses
-		current.chargeUses -= expectedActions;
-		if (current.chargeUses < 0) current.chargeUses = 0;
 
 		// time for current loop
 		let timeToAdd = expectedActions * currentInterval;
