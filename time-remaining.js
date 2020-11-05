@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.0.1-0.17
+// @version		0.0.2-0.17
 // @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
 // @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
@@ -14,38 +14,38 @@
 // ==/UserScript==
 /* jshint esversion: 9 */
 
-// settings can be toggled from the console, or edited here
-window.timeRemainingSettings = {
-	// true for 12h clock (AM/PM), false for 24h clock
-	IS_12H_CLOCK: false,
-	// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
-	IS_SHORT_CLOCK: false,
-	// true for alternative main display with xp/h, mastery xp/h and action count
-	SHOW_XP_RATE: false,
-	// true to allow final pool percentage > 100%
-	UNCAP_POOL: false,
-	// true will show the current xp/h and mastery xp/h; false shows average if using all resources
-	// does not affect anything if SHOW_XP_RATE is false
-	CURRENT_RATES: false,
-	// Default target level is 99, this can be changed
-	GLOBAL_TARGET_LEVEL: 99,
-	// skill specific target levels can be defined here, these can override the global target level
-	TARGET_LEVEL: {
-		// [CONSTANTS.skill.Firemaking]: undefined,
-	},
-	// returns the appropriate target level
-	getTargetLevel: (skillID) => {
-		if (timeRemainingSettings.TARGET_LEVEL[skillID] === undefined) {
-			return timeRemainingSettings.GLOBAL_TARGET_LEVEL;
-		}
-		return timeRemainingSettings.TARGET_LEVEL[skillID];
-	}
-};
-
 // script to inject
 function script() {
 	// Loading script
 	console.log('Melvor TimeRemaining Loaded');
+
+	// settings can be toggled from the console, or edited here
+	window.timeRemainingSettings = {
+		// true for 12h clock (AM/PM), false for 24h clock
+		IS_12H_CLOCK: false,
+		// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
+		IS_SHORT_CLOCK: true,
+		// true for alternative main display with xp/h, mastery xp/h and action count
+		SHOW_XP_RATE: true,
+		// true to allow final pool percentage > 100%
+		UNCAP_POOL: true,
+		// true will show the current xp/h and mastery xp/h; false shows average if using all resources
+		// does not affect anything if SHOW_XP_RATE is false
+		CURRENT_RATES: false,
+		// Default target level is 99, this can be changed
+		GLOBAL_TARGET_LEVEL: 99,
+		// skill specific target levels can be defined here, these can override the global target level
+		TARGET_LEVEL: {
+			// [CONSTANTS.skill.Firemaking]: undefined,
+		},
+		// returns the appropriate target level
+		getTargetLevel: (skillID) => {
+			if (timeRemainingSettings.TARGET_LEVEL[skillID] === undefined) {
+				return timeRemainingSettings.GLOBAL_TARGET_LEVEL;
+			}
+			return timeRemainingSettings.TARGET_LEVEL[skillID];
+		}
+	};
 
 	// Function to check if task is complete
 	function taskComplete(skillID) {
