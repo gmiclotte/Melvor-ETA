@@ -127,11 +127,12 @@ function script() {
 
 	// Format date 24 hour clock
 	function DateFormat(now, then, is12h = timeRemainingSettings.IS_12H_CLOCK, isShortClock = timeRemainingSettings.IS_SHORT_CLOCK){
-		let days = daysBetween(now, then);
-		if (isShortClock) {
-			days = (days === 0) ? "" : ` + ${days}d`;
+		let format = {weekday: "short", month: "short", day: "numeric"};
+		let date = then.toLocaleString(undefined, format);
+		if (date === now.toLocaleString(undefined, format)) {
+			date = "";
 		} else {
-			days = (days === 0) ? "" : (days === 1) ? " tomorrow" : ` + ${days} days`;
+			date += " at ";
 		}
 		let hours = then.getHours();
 		let minutes = then.getMinutes();
@@ -147,7 +148,7 @@ function script() {
 		// pad minutes
 		minutes = minutes < 10 ? '0' + minutes : minutes;
 		// concat and return remaining time
-		return hours + ':' + minutes + amOrPm + days;
+		return date + hours + ':' + minutes + amOrPm;
 	}
 
 	// Level to Xp Array
