@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.1.1-0.17
+// @version		0.1.2-0.17
 // @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
 // @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
@@ -38,6 +38,8 @@ function script() {
 		TARGET_LEVEL: {
 			// [CONSTANTS.skill.Firemaking]: undefined,
 		},
+		// set to true to include mastery tokens in time until 100% pool
+		USE_TOKENS: false,
 		// returns the appropriate target level
 		getTargetLevel: (skillID) => {
 			if (timeRemainingSettings.TARGET_LEVEL[skillID] === undefined) {
@@ -338,6 +340,15 @@ function script() {
 		return count;
 	}
 
+	// compute average actions per mastery token
+	function actionsPerToken(skillID, skillXp) {
+		let actions = 20000 / calcTotalUnlockedItems(skillID, skillXp);
+		if (equippedItems.includes(CONSTANTS.item.Clue_Chasers_Insignia)) {
+			actions *= 0.9;
+		}
+		return actions;
+	}
+
 	function initialVariables(skillID) {
 		let initial = {
 			skillID: skillID,
@@ -365,6 +376,7 @@ function script() {
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
 			maxXp: convertLvlToXp(timeRemainingSettings.getTargetLevel(skillID)),
 			maxMasteryXp: convertLvlToXp(99),
+			tokens: 0,
 		}
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
 		initial.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
@@ -655,6 +667,7 @@ function script() {
 			totalMasteryLevel: initial.totalMasteryLevel,
 			chargeUses: 0, // estimated remaining charge uses
 			actions: 0, // estimated number of actions taken so far
+			tokens: initial.tokens,
 		};
 		return current;
 	}
@@ -663,24 +676,29 @@ function script() {
 		const rhaelyxChargePreservation = 0.15;
 
 		// Adjustments
-		let totalChanceToUse = 1 - masteryPreservation(initial, current.masteryXp, initial.chanceToKeep) - poolPreservation(initial, current.poolXp);
-		let currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
-		let averageActionTime = intervalRespawnAdjustment(initial, currentInterval, current.poolXp, current.masteryXp);
+		const totalChanceToUse = 1 - masteryPreservation(initial, current.masteryXp, initial.chanceToKeep) - poolPreservation(initial, current.poolXp);
+		const currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
+		const averageActionTime = intervalRespawnAdjustment(initial, currentInterval, current.poolXp, current.masteryXp);
 
 		// Current Xp
-		let xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
-		let masteryXpPerAction = calcMasteryXpToAdd(initial, currentInterval, current.skillXp, current.masteryXp, current.poolXp, current.totalMasteryLevel);
+		const xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
+		const masteryXpPerAction = calcMasteryXpToAdd(initial, currentInterval, current.skillXp, current.masteryXp, current.poolXp, current.totalMasteryLevel);
 		let poolXpPerAction = calcPoolXpToAdd(current.skillXp, masteryXpPerAction);
+		const tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp);
+		const tokenXpPerAction = initial.maxPoolXp / 1000 * tokensPerAction;
+		if (timeRemainingSettings.USE_TOKENS) {
+			poolXpPerAction += tokenXpPerAction;
+		}
 
 		// Distance to Limits
-		let skillXpToLimit = initial.skillLim.find(element => element > current.skillXp) - current.skillXp;
-		let masteryXpToLimit = initial.masteryLim.find(element => element > current.masteryXp) - current.masteryXp;
-		let poolXpToLimit = initial.poolLim.find(element => element > current.poolXp) - current.poolXp;
+		const skillXpToLimit = initial.skillLim.find(element => element > current.skillXp) - current.skillXp;
+		const masteryXpToLimit = initial.masteryLim.find(element => element > current.masteryXp) - current.masteryXp;
+		const poolXpToLimit = initial.poolLim.find(element => element > current.poolXp) - current.poolXp;
 
 		// Actions to limits
-		let skillXpActions = skillXpToLimit / xpPerAction;
-		let masteryXpActions = masteryXpToLimit / masteryXpPerAction;
-		let poolXpActions = poolXpToLimit / poolXpPerAction;
+		const skillXpActions = skillXpToLimit / xpPerAction;
+		const masteryXpActions = masteryXpToLimit / masteryXpPerAction;
+		const poolXpActions = poolXpToLimit / poolXpPerAction;
 
 		// Minimum actions based on limits
 		let expectedActions = Math.ceil(Math.min(masteryXpActions, skillXpActions, poolXpActions));
@@ -691,7 +709,7 @@ function script() {
 			// number of actions with rhaelyx charges
 			let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
 			// remaining resources
-			let resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation));
+			const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation));
 			// add number of actions without rhaelyx charges
 			resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
 			expectedActions = Math.min(expectedActions, resourceActions);
@@ -721,7 +739,11 @@ function script() {
 		}
 
 		// time for current loop
-		let timeToAdd = expectedActions * averageActionTime;
+		const timeToAdd = expectedActions * averageActionTime;
+		// gain tokens, unless we're using them
+		if (!timeRemainingSettings.USE_TOKENS) {
+			current.tokens += expectedActions * tokensPerAction;
+		}
 		// Update time and Xp
 		current.sumTotalTime += timeToAdd;
 		current.skillXp += xpPerAction * expectedActions;
@@ -764,18 +786,32 @@ function script() {
 		while (current.resources > 0) {
 			current = calcTimeToBreakpoint(initial, current);
 		}
-		// compute current xp/h and mxp/h
-		let initialInterval = intervalAdjustment(initial,  initial.poolXp, initial.masteryXp);
-		let initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
-		let xph = skillXpAdjustment(initial,  initial.poolXp, initial.masteryXp) / initialAverageActionTime * 1000 * 3600;
-		// compute current mastery xp / h using the getMasteryXpToAdd from the game
-		let masteryXph = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval) / initialAverageActionTime * 1000 * 3600;
-		// alternative: compute through the calcMasteryXpToAdd method from this script, they should be the same !
-		// let masteryXph = calcMasteryXpToAdd(initialInterval, initial.skillXp, initial.masteryXp, initial.poolXp, initial.masteryLevel) / initialAverageActionTime * 1000 * 3600;
-		// compute average (mastery) xp/h until resources run out
-		let avgXph = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
-		let avgMasteryXph = (current.masteryXp - initial.masteryXp) * 3600 * 1000 / current.sumTotalTime;
-		const poolXpToPercentage = (poolXp, maxPoolXp) => Math.min((poolXp / maxPoolXp) * 100, timeRemainingSettings.UNCAP_POOL ? Infinity : 100).toFixed(2);
+		let xpH, masteryXpH, poolH, tokensH;
+		if (timeRemainingSettings.CURRENT_RATES || initial.isGathering ) {
+			// compute current xp/h and mxp/h
+			const initialInterval = intervalAdjustment(initial, initial.poolXp, initial.masteryXp);
+			const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
+			xpH = skillXpAdjustment(initial, initial.poolXp, initial.masteryXp) / initialAverageActionTime * 1000 * 3600;
+			// compute current mastery xp / h using the getMasteryXpToAdd from the game
+			const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
+			masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
+			// pool percentage per hour
+			poolH = calcPoolXpToAdd(current.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
+			tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp);
+		} else {
+			// compute average (mastery) xp/h until resources run out
+			xpH = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
+			masteryXpH = (current.masteryXp - initial.masteryXp) * 3600 * 1000 / current.sumTotalTime;
+			// average pool percentage per hour
+			poolH = (current.poolXp - initial.poolXp) * 3600 * 1000 / current.sumTotalTime / initial.maxPoolXp;
+			tokensH = (current.tokens - initial.tokens) * 3600 * 1000 / current.sumTotalTime;
+		}
+		// each token contributes one thousandth of the pool and then convert to percentage
+		poolH = (poolH + tokensH / 1000) * 100;
+		// method to convert final pool xp to percentage
+		const poolCap = timeRemainingSettings.UNCAP_POOL ? Infinity : 100
+		const poolXpToPercentage = (poolXp, maxPoolXp) => Math.min((poolXp / maxPoolXp) * 100, poolCap).toFixed(2);
+		// create result object
 		let expectedTime = {
 			"timeLeft" :  Math.round(current.sumTotalTime),
 			"actions": current.actions,
@@ -785,21 +821,27 @@ function script() {
 			"maxPoolTime" : current.maxPoolTime,
 			"maxMasteryTime" : current.maxMasteryTime,
 			"maxSkillTime" : current.maxSkillTime,
-			"masteryXph": timeRemainingSettings.CURRENT_RATES || initial.isGathering ? masteryXph : avgMasteryXph,
-			"xph" : timeRemainingSettings.CURRENT_RATES || initial.isGathering ? xph : avgXph,
+			"xpH": xpH,
+			"masteryXpH": masteryXpH,
+			"poolH": poolH,
+			"tokens": current.tokens,
 		};
-		//
+		// continue calculations until time to all targets is found
 		while(!current.maxSkillReached || !current.maxMasteryReached || !current.maxPoolReached) {
 			current = calcTimeToBreakpoint(initial, current, true);
 		}
+		// if it is a gathering skill, then set final values to the values when reaching the final target
 		if (initial.isGathering) {
 			expectedTime.finalSkillXp = current.skillXp;
 			expectedTime.finalMasteryXp = current.masteryXp;
 			expectedTime.finalPoolPercentage = poolXpToPercentage(current.poolXp, initial.maxPoolXp);
+			expectedTime.tokens = current.tokens;
 		}
+		// set time to targets
 		expectedTime.maxSkillTime = current.maxSkillTime;
 		expectedTime.maxMasteryTime = current.maxMasteryTime;
 		expectedTime.maxPoolTime = current.maxPoolTime;
+		// return the resulting data object
 		return expectedTime;
 	}
 
@@ -873,6 +915,7 @@ function script() {
 				initial.masteryID = items[initial.item].masteryID[1];
 			}
 			initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
+			initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
 		}
 
 		// Apply itemXp Bonuses from gear and pets
@@ -910,6 +953,7 @@ function script() {
 		let timeLeftPool = 0;
 		let timeLeftMastery = 0;
 		let timeLeftSkill = 0;
+		let tokens = 0;
 		if (initial.isMagic) {
 			timeLeft = Math.round(initial.recordCraft * initial.skillInterval / 1000);
 		} else {
@@ -918,6 +962,7 @@ function script() {
 			timeLeftPool = Math.round(results.maxPoolTime / 1000);
 			timeLeftMastery = Math.round(results.maxMasteryTime / 1000);
 			timeLeftSkill = Math.round(results.maxSkillTime / 1000);
+			tokens = Math.round(results.tokens);
 		}
 
 		//Global variables to keep track of when a craft is complete
@@ -936,17 +981,21 @@ function script() {
 		let timeLeftElement = document.getElementById(timeLeftElementId);
 		if (timeLeftElement !== null) {
 			let finishedTime = AddSecondsToDate(now, timeLeft);
-			if (timeRemainingSettings.SHOW_XP_RATE && !initial.isMagic && !initial.isGathering) {
-				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xph))
-					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXph))
+			if(initial.isGathering) {
+				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xpH))
+					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXpH))
+					+ `\r\nPool/h: ${results.poolH.toFixed(2)}%`
+			} else if (timeLeft === 0) {
+				timeLeftElement.textContent = "No resources!";
+			} else if (!timeRemainingSettings.SHOW_XP_RATE || initial.isMagic) {
+				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
+			}  else {
+				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xpH))
+					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXpH))
+					+ `\r\nPool/h: ${results.poolH.toFixed(2)}%`
 					+ "\r\nActions: " + formatNumber(results.actions)
 					+ "\r\nTime: " + secondsToHms(timeLeft)
 					+ "\r\nFinish: " + DateFormat(now, finishedTime);
-			} else if(initial.isGathering) {
-				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xph))
-					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXph));
-			} else {
-				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
 			}
 			timeLeftElement.style.display = "block";
 		}
@@ -959,24 +1008,31 @@ function script() {
 					animation: false,
 				});
 			}
-			let wrapper = ['<div class="row"><div class="col-6" style="white-space: nowrap;"><h3 class="block-title m-1" style="color:white;" >','</h3></div><div class="col-6" style="white-space: nowrap;"><h3 class="block-title m-1 pl-1"><span class="p-1 bg-',' rounded" style="text-align:center; display: inline-block;line-height: normal;width: 70px;color:white;">','</span>','</h3></div></div>'];
-			let percentageSkill = (getPercentageInLevel(results.finalSkillXp,results.finalSkillXp,"skill")).toFixed(1);
-			let percentageSkillElement = (percentageSkill === 0) ? '' : ` +${percentageSkill}%`;
-			let finalSkillLevelElement = wrapper[0] + 'Final Skill Level ' + wrapper[1] + 'success' + wrapper[2] + convertXpToLvl(results.finalSkillXp,true) + ' / 99' + wrapper[3] + percentageSkillElement + wrapper[4];
+			let wrapper = [
+				'<div class="row"><div class="col-5" style="white-space: nowrap;"><h3 class="block-title m-1" style="color:white;" >',
+				'</h3></div><div class="col-7" style="white-space: nowrap;"><h3 class="block-title m-1 pl-1"><span class="p-1 bg-',
+				' rounded" style="text-align:center; display: inline-block;line-height: normal;width: 70px;color:white;">',
+				'</span>',
+				'</h3></div></div>'
+			];
+			let percentageSkill = (getPercentageInLevel(results.finalSkillXp, results.finalSkillXp,"skill")).toFixed(1);
+			let percentageSkillElement = (percentageSkill === "0.0") ? '' : ` +${percentageSkill}%`;
+			let finalSkillLevelElement = wrapper[0] + 'Final Level ' + wrapper[1] + 'success' + wrapper[2] + convertXpToLvl(results.finalSkillXp,true) + ' / 99' + wrapper[3] + percentageSkillElement + wrapper[4];
 			let timeLeftSkillElement = '';
 			if (timeLeftSkill > 0){
-				let finishedTimeSkill = AddSecondsToDate(now,timeLeftSkill);
+				let finishedTimeSkill = AddSecondsToDate(now, timeLeftSkill);
 				timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to ' + timeRemainingSettings.getTargetLevel(initial.skillID) + ': ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
 			}
-			let percentageMastery = (getPercentageInLevel(results.finalMasteryXp,results.finalMasteryXp,"mastery")).toFixed(1);
-			let percentageMasteryElement = (percentageMastery === 0) ? '' : ` +${percentageMastery}%`;
-			let finalMasteryLevelElement = wrapper[0] + 'Final Mastery Level ' + wrapper[1] + 'info' + wrapper[2] + convertXpToLvl(results.finalMasteryXp) + ' / 99' + wrapper[3] + percentageMasteryElement + wrapper[4];
+			let percentageMastery = (getPercentageInLevel(results.finalMasteryXp, results.finalMasteryXp,"mastery")).toFixed(1);
+			let percentageMasteryElement = (percentageMastery === "0.0") ? '' : ` +${percentageMastery}%`;
+			let finalMasteryLevelElement = wrapper[0] + 'Final Mastery ' + wrapper[1] + 'info' + wrapper[2] + convertXpToLvl(results.finalMasteryXp) + ' / 99' + wrapper[3] + percentageMasteryElement + wrapper[4];
 			let timeLeftMasteryElement = '';
 			if (timeLeftMastery > 0){
 				let finishedTimeMastery = AddSecondsToDate(now,timeLeftMastery);
 				timeLeftMasteryElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to 99: ' + secondsToHms(timeLeftMastery) + '<br> Expected finished: ' + DateFormat(now,finishedTimeMastery) + '</small></div></div>';
 			}
-			let finalPoolPercentageElement = wrapper[0] + 'Final Mastery Pool ' + wrapper[1] + 'warning' + wrapper[2] + results.finalPoolPercentage + '%' + wrapper[3] + wrapper[4];
+			let tokenElement = (tokens === 0) ? '' : ` +${tokens}MT`;
+			let finalPoolPercentageElement = wrapper[0] + 'Final Pool XP ' + wrapper[1] + 'warning' + wrapper[2] + results.finalPoolPercentage + '%' + wrapper[3] + tokenElement + wrapper[4];
 			let timeLeftPoolElement = '';
 			if (timeLeftPool > 0){
 				let finishedTimePool = AddSecondsToDate(now,timeLeftPool);
