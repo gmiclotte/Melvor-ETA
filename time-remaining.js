@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.1.2-0.17
+// @version		0.1.3-0.17
 // @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
 // @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
@@ -1153,8 +1153,8 @@ function script() {
 	$("#runecraft-item-have").after(TempContainer[0] + "timeLeftRunecrafting" + TempContainer[1]);
 	$("#craft-item-have").after(TempContainer[0] + "timeLeftCrafting" + TempContainer[1]);
 	$("#herblore-item-have").after(TempContainer[0] + "timeLeftHerblore" + TempContainer[1]);
-	$("#skill-cooking-food-selected-qty").after(TempContainerAlt[0] + "timeLeftCooking" + TempContainerAlt[1]);
-	$("#skill-fm-logs-selected-qty").after(TempContainerAlt[0] + "timeLeftFiremaking" + TempContainerAlt[1]);
+	$("#skill-cooking-food-selected-qty").parent().parent().parent().after(TempContainerAlt[0] + "timeLeftCooking" + TempContainerAlt[1]);
+	$("#skill-fm-logs-selected-qty").parent().parent().parent().after(TempContainerAlt[0] + "timeLeftFiremaking" + TempContainerAlt[1]);
 	$("#magic-item-have-and-div").after(TempContainer[0] + "timeLeftMagic" + TempContainer[1]);
 	{
 		miningData.forEach((_, i) => {
