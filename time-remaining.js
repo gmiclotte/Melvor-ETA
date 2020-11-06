@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.1.0-0.17
+// @version		0.1.1-0.17
 // @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
 // @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
@@ -208,19 +208,23 @@ function script() {
 	function intervalAdjustment(initial, poolXp, masteryXp) {
 		let adjustedInterval = initial.skillInterval;
 		switch (initial.skillID) {
-			case CONSTANTS.skill.Fletching:
-				if (poolXp >= initial.poolLim[3]) adjustedInterval -= 200;
-				break;
-
 			case CONSTANTS.skill.Firemaking:
-				if (poolXp >= initial.poolLim[1]) adjustedInterval *= 0.9;
-				let decreasedBurnInterval = 1 - convertXpToLvl(masteryXp) * 0.001;
-				adjustedInterval *= decreasedBurnInterval;
+				if (poolXp >= initial.poolLim[1]) {
+					adjustedInterval *= 0.9;
+				}
+				adjustedInterval *= 1 - convertXpToLvl(masteryXp) * 0.001;
 				break;
 
+			case CONSTANTS.skill.Crafting:
 			case CONSTANTS.skill.Mining:
 				// pool bonus speed
 				if (poolXp >= initial.poolLim[2]) {
+					adjustedInterval -= 200;
+				}
+				break;
+
+			case CONSTANTS.skill.Fletching:
+				if (poolXp >= initial.poolLim[3]) {
 					adjustedInterval -= 200;
 				}
 				break;
