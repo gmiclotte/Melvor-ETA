@@ -282,7 +282,7 @@ function script() {
 					&& equippedItems[CONSTANTS.equipmentSlot.Gloves] === CONSTANTS.item.Thieving_Gloves) {
 					successRate += 10;
 				}
-				successRate = Math.max(100, successRate) / 100;
+				successRate = Math.min(100, successRate) / 100;
 				// compute average time per action
 				let stunTime = 3000;
 				adjustedInterval = adjustedInterval * successRate + stunTime * (1 - successRate);
