@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name		Melvor ETA
 // @namespace	http://tampermonkey.net/
-// @version		0.1.3-0.17
+// @version		0.1.4-0.17
 // @description Shows xp/h and mastery xp/h, and the time remaining until certain targets are reached. Takes into account Mastery Levels and other bonuses.
 // @description Please report issues on https://github.com/gmiclotte/Melvor-Time-Remaining/issues or message TinyCoyote#1769 on Discord
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
@@ -40,6 +40,8 @@ function script() {
 		},
 		// set to true to include mastery tokens in time until 100% pool
 		USE_TOKENS: false,
+		// set to true to show partial level progress in the ETA tooltips
+		SHOW_PARTIAL_LEVELS: false,
 		// returns the appropriate target level
 		getTargetLevel: (skillID) => {
 			if (timeRemainingSettings.TARGET_LEVEL[skillID] === undefined) {
@@ -814,7 +816,7 @@ function script() {
 		const poolXpToPercentage = (poolXp, maxPoolXp) => Math.min((poolXp / maxPoolXp) * 100, poolCap).toFixed(2);
 		// create result object
 		let expectedTime = {
-			"timeLeft" :  Math.round(current.sumTotalTime),
+			"timeLeft": Math.round(current.sumTotalTime),
 			"actions": current.actions,
 			"finalSkillXp" : current.skillXp,
 			"finalMasteryXp" : current.masteryXp,
@@ -937,13 +939,13 @@ function script() {
 
 		// Get Item Requirements and Current Requirements
 		for (let i = 0; i < initial.skillReq.length; i++) {
-			let	itemReq = initial.skillReq[i].qty;
+			let itemReq = initial.skillReq[i].qty;
 			//Check how many of required resource in Bank
 			let itemQty = getQtyOfItem(initial.skillReq[i].id);
 			// Calculate max items you can craft for each itemReq
 			let itemCraft = Math.floor(itemQty / itemReq);
 			// Calculate limiting factor and set new record
-			if(itemCraft < initial.recordCraft) {
+			if (itemCraft < initial.recordCraft) {
 				initial.recordCraft = itemCraft;
 			}
 		}
@@ -982,21 +984,21 @@ function script() {
 		let timeLeftElement = document.getElementById(timeLeftElementId);
 		if (timeLeftElement !== null) {
 			let finishedTime = AddSecondsToDate(now, timeLeft);
-			if(initial.isGathering) {
+			if (initial.isGathering) {
 				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xpH))
 					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXpH))
 					+ `\r\nPool/h: ${results.poolH.toFixed(2)}%`
 			} else if (timeLeft === 0) {
 				timeLeftElement.textContent = "No resources!";
 			} else if (!timeRemainingSettings.SHOW_XP_RATE || initial.isMagic) {
-				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Expected finished: " + DateFormat(now, finishedTime);
-			}  else {
+				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Finishes: " + DateFormat(now, finishedTime);
+			} else {
 				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xpH))
 					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXpH))
 					+ `\r\nPool/h: ${results.poolH.toFixed(2)}%`
 					+ "\r\nActions: " + formatNumber(results.actions)
 					+ "\r\nTime: " + secondsToHms(timeLeft)
-					+ "\r\nFinish: " + DateFormat(now, finishedTime);
+					+ "\r\nFinishes: " + DateFormat(now, finishedTime);
 			}
 			timeLeftElement.style.display = "block";
 		}
@@ -1009,47 +1011,123 @@ function script() {
 					animation: false,
 				});
 			}
-			let wrapper = [
-				'<div class="row"><div class="col-5" style="white-space: nowrap;"><h3 class="block-title m-1" style="color:white;" >',
-				'</h3></div><div class="col-7" style="white-space: nowrap;"><h3 class="block-title m-1 pl-1"><span class="p-1 bg-',
-				' rounded" style="text-align:center; display: inline-block;line-height: normal;width: 70px;color:white;">',
-				'</span>',
-				'</h3></div></div>'
-			];
-			let percentageSkill = (getPercentageInLevel(results.finalSkillXp, results.finalSkillXp,"skill")).toFixed(1);
-			let percentageSkillElement = (percentageSkill === "0.0") ? '' : ` +${percentageSkill}%`;
-			let finalSkillLevelElement = wrapper[0] + 'Final Level ' + wrapper[1] + 'success' + wrapper[2] + convertXpToLvl(results.finalSkillXp,true) + ' / 99' + wrapper[3] + percentageSkillElement + wrapper[4];
+			const wrapOpen = '<div class="row no-gutters">';
+			const wrapFirst = s => {
+				return ''
+					+ '<div class="col-6" style="white-space: nowrap;">'
+					+ '    <h3 class="font-size-base m-1" style="color:white;" >'
+					+ `        <span class="p-1" style="text-align:center; display: inline-block;line-height: normal;color:white;">`
+					+ s
+					+ '        </span>'
+					//+ '    </h3>'
+					+ '</div>';
+			}
+			const wrapSecond = (tag, s) => {
+				return ''
+					+ '<div class="col-6" style="white-space: nowrap;">'
+					+ '    <h3 class="font-size-base m-1" style="color:white;" >'
+					+ `        <span class="p-1 bg-${tag} rounded" style="text-align:center; display: inline-block;line-height: normal;width: 100px;color:white;">`
+					+ s
+					+ '        </span>'
+					+ '    </h3>'
+					+ '</div>';
+			}
+			const timeLeftToHTML = (target, time, finish) => {
+				return ''
+					+ `Time to ${target}: ${time}`
+					+ '        <br>'
+					+ `Finishes: ${finish}`;
+			}
+			const wrapTimeLeft = (s) => {
+				return ''
+					+ '<div class="row no-gutters">'
+					+ '    <span class="col-12 m-1" style="padding:0.5rem 1.25rem;min-height:2.5rem;font-size:0.875rem;line-height:1.25rem;text-align:center">'
+					+ s
+					+ '    </span>'
+					+ '</div>';
+			}
+			const wrapClose = '</div>';
+			const formatLevel = (level, progress) => {
+				if (!timeRemainingSettings.SHOW_PARTIAL_LEVELS) {
+					return level;
+				}
+				progress = Math.floor(progress);
+				if (progress !== 0) {
+					level = (level + progress / 100).toFixed(2);
+				}
+				return level;
+			}
+			let finalLevel = convertXpToLvl(results.finalSkillXp, true)
+			let levelProgress = getPercentageInLevel(results.finalSkillXp, results.finalSkillXp, "skill");
+			finalLevel = formatLevel(finalLevel, levelProgress);
+			let finalSkillLevelElement = wrapOpen + wrapFirst('Final Level') + wrapSecond('success', finalLevel + ' / 99') + wrapClose;
 			let timeLeftSkillElement = '';
-			if (timeLeftSkill > 0){
+			if (timeLeftSkill > 0) {
 				let finishedTimeSkill = AddSecondsToDate(now, timeLeftSkill);
-				timeLeftSkillElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to ' + timeRemainingSettings.getTargetLevel(initial.skillID) + ': ' + secondsToHms(timeLeftSkill) + '<br> Expected finished: ' + DateFormat(now,finishedTimeSkill) + '</small></div></div>';
+				timeLeftSkillElement = wrapTimeLeft(
+					timeLeftToHTML(
+						timeRemainingSettings.getTargetLevel(initial.skillID),
+						secondsToHms(timeLeftSkill),
+						DateFormat(now, finishedTimeSkill),
+					),
+				);
 			}
-			let percentageMastery = (getPercentageInLevel(results.finalMasteryXp, results.finalMasteryXp,"mastery")).toFixed(1);
-			let percentageMasteryElement = (percentageMastery === "0.0") ? '' : ` +${percentageMastery}%`;
-			let finalMasteryLevelElement = wrapper[0] + 'Final Mastery ' + wrapper[1] + 'info' + wrapper[2] + convertXpToLvl(results.finalMasteryXp) + ' / 99' + wrapper[3] + percentageMasteryElement + wrapper[4];
+			let finalMastery = convertXpToLvl(results.finalMasteryXp);
+			let masteryProgress = getPercentageInLevel(results.finalMasteryXp, results.finalMasteryXp, "mastery");
+			finalMastery = formatLevel(finalMastery, masteryProgress);
+			let finalMasteryLevelElement = wrapOpen + wrapFirst('Final Mastery') + wrapSecond('info', finalMastery + ' / 99') + wrapClose;
 			let timeLeftMasteryElement = '';
-			if (timeLeftMastery > 0){
-				let finishedTimeMastery = AddSecondsToDate(now,timeLeftMastery);
-				timeLeftMasteryElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to 99: ' + secondsToHms(timeLeftMastery) + '<br> Expected finished: ' + DateFormat(now,finishedTimeMastery) + '</small></div></div>';
+			if (timeLeftMastery > 0) {
+				let finishedTimeMastery = AddSecondsToDate(now, timeLeftMastery);
+				timeLeftMasteryElement = wrapTimeLeft(
+					timeLeftToHTML(
+						99,
+						secondsToHms(timeLeftMastery),
+						DateFormat(now, finishedTimeMastery),
+					),
+				);
 			}
-			let tokenElement = (tokens === 0) ? '' : ` +${tokens}MT`;
-			let finalPoolPercentageElement = wrapper[0] + 'Final Pool XP ' + wrapper[1] + 'warning' + wrapper[2] + results.finalPoolPercentage + '%' + wrapper[3] + tokenElement + wrapper[4];
+			const finalPoolPercentageElement = wrapOpen + wrapFirst('Final Pool XP') + wrapSecond('warning', results.finalPoolPercentage + '%') + wrapClose;
 			let timeLeftPoolElement = '';
-			if (timeLeftPool > 0){
-				let finishedTimePool = AddSecondsToDate(now,timeLeftPool);
-				timeLeftPoolElement = '<div class="row"><div class="col-12 font-size-sm text-uppercase text-muted mb-1" style="text-align:center"><small class="" style="display:inline-block;clear:both;white-space:pre-line;color:white;">Time to 100%: ' + secondsToHms(timeLeftPool) + '<br> Expected finished: ' + DateFormat(now,finishedTimePool) + '</small></div></div>';
+			if (tokens > 0 || timeLeftPool > 0) {
+				let finishedTimePool = AddSecondsToDate(now, timeLeftPool);
+				timeLeftPoolElement = wrapTimeLeft(
+					(tokens === 0
+							? ''
+							: `Final token count: ${tokens}`
+					)
+					+ (tokens === 0 || timeLeftPool === 0 ? '' : '<br>')
+					+ (timeLeftPool === 0
+						? ''
+						: timeLeftToHTML(
+							"100%",
+							secondsToHms(timeLeftPool),
+							DateFormat(now, finishedTimePool),
+						)
+					),
+				);
 			}
-			let tooltip = '<div class="col-12 mt-1">' + finalSkillLevelElement + timeLeftSkillElement + finalMasteryLevelElement + timeLeftMasteryElement + finalPoolPercentageElement + timeLeftPoolElement +'</div>';
+			let tooltip = ''
+				+ '<div>'
+				+ finalSkillLevelElement
+				+ timeLeftSkillElement
+				+ finalMasteryLevelElement
+				+ timeLeftMasteryElement
+				+ finalPoolPercentageElement
+				+ timeLeftPoolElement
+				+ '</div>';
 			timeLeftElement._tippy.setContent(tooltip);
 
-			let poolProgress = (results.finalPoolPercentage > 100) ?
-				100 - ((initial.poolXp / initial.maxPoolXp) * 100) :
-				(results.finalPoolPercentage - ((initial.poolXp / initial.maxPoolXp)*100)).toFixed(4);
-			$(`#mastery-pool-progress-end-${initial.skillID}`).css("width", poolProgress + "%");
-			let masteryProgress = getPercentageInLevel(initial.masteryXp,results.finalMasteryXp,"mastery",true);
-			$(`#${initial.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
-			let skillProgress = getPercentageInLevel(initial.skillXp, results.finalSkillXp,"skill",true);
-			$(`#skill-progress-bar-end-${initial.skillID}`).css("width", skillProgress + "%");
+			{
+				let poolProgress = (results.finalPoolPercentage > 100) ?
+					100 - ((initial.poolXp / initial.maxPoolXp) * 100) :
+					(results.finalPoolPercentage - ((initial.poolXp / initial.maxPoolXp) * 100)).toFixed(4);
+				$(`#mastery-pool-progress-end-${initial.skillID}`).css("width", poolProgress + "%");
+				let masteryProgress = getPercentageInLevel(initial.masteryXp, results.finalMasteryXp, "mastery", true);
+				$(`#${initial.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
+				let skillProgress = getPercentageInLevel(initial.skillXp, results.finalSkillXp, "skill", true);
+				$(`#skill-progress-bar-end-${initial.skillID}`).css("width", skillProgress + "%");
+			}
 		}
 	}
 
@@ -1146,25 +1224,30 @@ function script() {
 	};
 
 	// Create timeLeft containers
-	let TempContainer = ['<div class="font-size-sm font-w600 text-uppercase text-center text-muted"><small id ="','" class="mb-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
-	let TempContainerAlt = ['<div class="font-size-sm text-uppercase text-muted"><small id ="','" class="mt-2" style="display:block;clear:both;white-space: pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title=""></small></div>'];
+	const tempContainer = (id) => {
+		return ''
+			+ '<div class="font-size-base font-w600 text-center text-muted">'
+			+ `    <small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title="">`
+			+ '    </small>'
+			+ '</div>';
+	}
 
-	$("#smith-item-have").after(TempContainer[0] + "timeLeftSmithing" + TempContainer[1]);
-	$("#fletch-item-have").after(TempContainer[0] + "timeLeftFletching" + TempContainer[1]);
-	$("#runecraft-item-have").after(TempContainer[0] + "timeLeftRunecrafting" + TempContainer[1]);
-	$("#craft-item-have").after(TempContainer[0] + "timeLeftCrafting" + TempContainer[1]);
-	$("#herblore-item-have").after(TempContainer[0] + "timeLeftHerblore" + TempContainer[1]);
-	$("#skill-cooking-food-selected-qty").parent().parent().parent().after(TempContainerAlt[0] + "timeLeftCooking" + TempContainerAlt[1]);
-	$("#skill-fm-logs-selected-qty").parent().parent().parent().after(TempContainerAlt[0] + "timeLeftFiremaking" + TempContainerAlt[1]);
-	$("#magic-item-have-and-div").after(TempContainer[0] + "timeLeftMagic" + TempContainer[1]);
+	$("#smith-item-have").after(tempContainer("timeLeftSmithing"));
+	$("#fletch-item-have").after(tempContainer("timeLeftFletching"));
+	$("#runecraft-item-have").after(tempContainer("timeLeftRunecrafting"));
+	$("#craft-item-have").after(tempContainer("timeLeftCrafting"));
+	$("#herblore-item-have").after(tempContainer("timeLeftHerblore"));
+	$("#skill-cooking-food-selected-qty").parent().parent().parent().after(tempContainer("timeLeftCooking"));
+	$("#skill-fm-logs-selected-qty").parent().parent().parent().after(tempContainer("timeLeftFiremaking"));
+	$("#magic-item-have-and-div").after(tempContainer("timeLeftMagic"));
 	{
 		miningData.forEach((_, i) => {
-			$(`#mining-ore-img-${i}`).before(TempContainer[0] + `timeLeftMining-${i}` + TempContainer[1])
+			$(`#mining-ore-img-${i}`).before(tempContainer(`timeLeftMining-${i}`))
 		});
 	}
 	function makeThievingDisplay() {
 		thievingNPC.forEach((_, i) => {
-			$(`#success-rate-${i}`).parent().after(TempContainer[0] + `timeLeftThieving-${i}` + TempContainer[1])
+			$(`#success-rate-${i}`).parent().after(tempContainer(`timeLeftThieving-${i}`))
 		});
 	}
 	makeThievingDisplay(); // this is a function because in some scenarios the thieving display disappears, so we need to remake it
