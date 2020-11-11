@@ -237,6 +237,11 @@ function script() {
 					adjustedInterval -= 200;
 				}
 				break;
+
+			case CONSTANTS.skill.Woodcutting:
+				if (convertXpToLvl(masteryXp) >= 99) {
+					adjustedInterval -= 200;
+				}
 		}
 		return adjustedInterval;
 	}
@@ -575,6 +580,20 @@ function script() {
 		return configureGathering(initial);
 	}
 
+	function configureWoodcutting(initial) {
+		initial.item = trees[initial.currentAction];
+		initial.itemXp = initial.item.xp;
+		initial.skillInterval = initial.item.interval;
+		if (godUpgrade[2]) {
+			initial.skillInterval *= 0.8;
+		}
+		initial.skillInterval *= 1 - axeBonusSpeed[currentAxe] / 100;
+		if (skillCapeEquipped(CONSTANTS.item.Woodcutting_Skillcape)) {
+			initial.skillInterval /= 2;
+		}
+		return configureGathering(initial);
+	}
+
 	// Calculate mastery xp based on unlocked bonuses
 	function calcMasteryXpToAdd(initial, timePerAction, skillXp, masteryXp, poolXp, totalMasteryLevel) {
 		let xpModifier = 1;
@@ -866,6 +885,9 @@ function script() {
 					data = thievingNPC;
 					break;
 
+				case CONSTANTS.skill.Woodcutting:
+					data = trees;
+					break;
 			}
 			data.forEach((_, i) => {
 				initial.currentAction = i;
@@ -910,13 +932,16 @@ function script() {
 			case CONSTANTS.skill.Thieving:
 				initial = configureThieving(initial);
 				break;
+			case CONSTANTS.skill.Woodcutting:
+				initial = configureWoodcutting(initial);
+				break;
 		}
 		// Configure initial mastery values for all skills with masteries
 		if (!initial.isMagic) {
 			initial.poolXp = MASTERY[initial.skillID].pool;
 			initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
 			initial.totalMasteryLevel = getTotalMasteryLevelForSkill(initial.skillID);
-			if (initial.skillID === CONSTANTS.skill.Thieving) {
+			if (initial.isGathering) {
 				initial.masteryID = initial.currentAction;
 			} else {
 				initial.masteryID = items[initial.item].masteryID[1];
@@ -1190,6 +1215,7 @@ function script() {
 		// gathering skills
 		["Mining", "mineRock"],
 		["Thieving", "pickpocket"],
+		["Woodcutting", "cutTree"],
 	].forEach(skill => {
 		let skillName = skill[0];
 		// wrap the start method
@@ -1210,6 +1236,9 @@ function script() {
 	changePage = function(...args) {
 		let skillName = undefined;
 		switch (args[0]) {
+			case 0:
+				skillName = "Woodcutting";
+				break;
 			case 10:
 				skillName = "Mining";
 				break;
@@ -1244,17 +1273,24 @@ function script() {
 	$("#skill-cooking-food-selected-qty").parent().parent().parent().after(tempContainer("timeLeftCooking"));
 	$("#skill-fm-logs-selected-qty").parent().parent().parent().after(tempContainer("timeLeftFiremaking"));
 	$("#magic-item-have-and-div").after(tempContainer("timeLeftMagic"));
-	{
+	function makeMiningDisplay() {
 		miningData.forEach((_, i) => {
 			$(`#mining-ore-img-${i}`).before(tempContainer(`timeLeftMining-${i}`))
 		});
 	}
+	makeMiningDisplay();
 	function makeThievingDisplay() {
 		thievingNPC.forEach((_, i) => {
 			$(`#success-rate-${i}`).parent().after(tempContainer(`timeLeftThieving-${i}`))
 		});
 	}
-	makeThievingDisplay(); // this is a function because in some scenarios the thieving display disappears, so we need to remake it
+	makeThievingDisplay(); // this has to be a function because in some scenarios the thieving display disappears, so we need to remake it
+	function makeWoodcuttingDisplay() {
+		trees.forEach((_, i) => {
+			$(`#tree-rates-${i}`).after(tempContainer(`timeLeftWoodcutting-${i}`))
+		});
+	}
+	makeWoodcuttingDisplay();
 
 	// Mastery Pool progress
 	for(let id in SKILLS) {
