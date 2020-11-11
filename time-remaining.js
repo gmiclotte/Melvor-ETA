@@ -17,10 +17,10 @@
 // script to inject
 function script() {
 	// Loading script
-	console.log('Melvor TimeRemaining Loaded');
+	console.log('Melvor ETA Loaded');
 
-	// settings can be toggled from the console, or edited here
-	window.timeRemainingSettings = {
+	// settings can be changed from the console, the default values here will be overwritten by the values in localStorage['ETASettings']
+	window.ETASettings = {
 		// true for 12h clock (AM/PM), false for 24h clock
 		IS_12H_CLOCK: false,
 		// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
@@ -36,7 +36,7 @@ function script() {
 		GLOBAL_TARGET_LEVEL: 99,
 		// skill specific target levels can be defined here, these can override the global target level
 		TARGET_LEVEL: {
-			// [CONSTANTS.skill.Firemaking]: undefined,
+			// [CONSTANTS.skill.Firemaking]: 120,
 		},
 		// set to true to include mastery tokens in time until 100% pool
 		USE_TOKENS: false,
@@ -44,10 +44,14 @@ function script() {
 		SHOW_PARTIAL_LEVELS: false,
 		// returns the appropriate target level
 		getTargetLevel: (skillID) => {
-			if (timeRemainingSettings.TARGET_LEVEL[skillID] === undefined) {
-				return timeRemainingSettings.GLOBAL_TARGET_LEVEL;
+			if (ETASettings.TARGET_LEVEL[skillID] === undefined) {
+				return ETASettings.GLOBAL_TARGET_LEVEL;
 			}
-			return timeRemainingSettings.TARGET_LEVEL[skillID];
+			return ETASettings.TARGET_LEVEL[skillID];
+		},
+		// save settings to local storage
+		save: () => {
+			localStorage['ETASettings'] = window.JSON.stringify(window.ETASettings);
 		}
 	};
 
@@ -55,7 +59,7 @@ function script() {
 	function taskComplete(skillID) {
 		if (window.timeLeftLast > 1 && window.timeLeftCurrent === 0) {
 			notifyPlayer(skillID, "Task Done", "danger");
-			console.log('Melvor TimeRemaining: task done');
+			console.log('Melvor ETA: task done');
 			let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
 			ding.volume=0.1;
 			ding.play();
@@ -87,7 +91,7 @@ function script() {
 	}
 
 	// Convert seconds to hours/minutes/seconds and format them
-	function secondsToHms(d, isShortClock = timeRemainingSettings.IS_SHORT_CLOCK) {
+	function secondsToHms(d, isShortClock = ETASettings.IS_SHORT_CLOCK) {
 		d = Number(d);
 		// split seconds in hours, minutes and seconds
 		let h = Math.floor(d / 3600);
@@ -128,7 +132,7 @@ function script() {
 	}
 
 	// Format date 24 hour clock
-	function DateFormat(now, then, is12h = timeRemainingSettings.IS_12H_CLOCK, isShortClock = timeRemainingSettings.IS_SHORT_CLOCK){
+	function DateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK, isShortClock = ETASettings.IS_SHORT_CLOCK){
 		let format = {weekday: "short", month: "short", day: "numeric"};
 		let date = then.toLocaleString(undefined, format);
 		if (date === now.toLocaleString(undefined, format)) {
@@ -377,7 +381,7 @@ function script() {
 				|| skillID === CONSTANTS.skill.Thieving,
 			// Generate default values for script
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
-			maxXp: convertLvlToXp(timeRemainingSettings.getTargetLevel(skillID)),
+			maxXp: convertLvlToXp(ETASettings.getTargetLevel(skillID)),
 			maxMasteryXp: convertLvlToXp(99),
 			tokens: 0,
 		}
@@ -424,10 +428,10 @@ function script() {
 		}
 		//Special Case for Arrow Shafts
 		if (initial.item === CONSTANTS.item.Arrow_Shafts) {
-			if (window.selectedFletchLog === undefined) {
-				window.selectedFletchLog = 0;
+			if (selectedFletchLog === undefined) {
+				selectedFletchLog = 0;
 			}
-			initial.skillReq = [initial.skillReq[window.selectedFletchLog]];
+			initial.skillReq = [initial.skillReq[selectedFletchLog]];
 		}
 		return initial;
 	}
@@ -689,7 +693,7 @@ function script() {
 		let poolXpPerAction = calcPoolXpToAdd(current.skillXp, masteryXpPerAction);
 		const tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp);
 		const tokenXpPerAction = initial.maxPoolXp / 1000 * tokensPerAction;
-		if (timeRemainingSettings.USE_TOKENS) {
+		if (ETASettings.USE_TOKENS) {
 			poolXpPerAction += tokenXpPerAction;
 		}
 
@@ -744,7 +748,7 @@ function script() {
 		// time for current loop
 		const timeToAdd = expectedActions * averageActionTime;
 		// gain tokens, unless we're using them
-		if (!timeRemainingSettings.USE_TOKENS) {
+		if (!ETASettings.USE_TOKENS) {
 			current.tokens += expectedActions * tokensPerAction;
 		}
 		// Update time and Xp
@@ -790,7 +794,7 @@ function script() {
 			current = calcTimeToBreakpoint(initial, current);
 		}
 		let xpH, masteryXpH, poolH, tokensH;
-		if (timeRemainingSettings.CURRENT_RATES || initial.isGathering ) {
+		if (ETASettings.CURRENT_RATES || initial.isGathering ) {
 			// compute current xp/h and mxp/h
 			const initialInterval = intervalAdjustment(initial, initial.poolXp, initial.masteryXp);
 			const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
@@ -812,7 +816,7 @@ function script() {
 		// each token contributes one thousandth of the pool and then convert to percentage
 		poolH = (poolH + tokensH / 1000) * 100;
 		// method to convert final pool xp to percentage
-		const poolCap = timeRemainingSettings.UNCAP_POOL ? Infinity : 100
+		const poolCap = ETASettings.UNCAP_POOL ? Infinity : 100
 		const poolXpToPercentage = (poolXp, maxPoolXp) => Math.min((poolXp / maxPoolXp) * 100, poolCap).toFixed(2);
 		// create result object
 		let expectedTime = {
@@ -990,7 +994,7 @@ function script() {
 					+ `\r\nPool/h: ${results.poolH.toFixed(2)}%`
 			} else if (timeLeft === 0) {
 				timeLeftElement.textContent = "No resources!";
-			} else if (!timeRemainingSettings.SHOW_XP_RATE || initial.isMagic) {
+			} else if (!ETASettings.SHOW_XP_RATE || initial.isMagic) {
 				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Finishes: " + DateFormat(now, finishedTime);
 			} else {
 				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xpH))
@@ -1048,7 +1052,7 @@ function script() {
 			}
 			const wrapClose = '</div>';
 			const formatLevel = (level, progress) => {
-				if (!timeRemainingSettings.SHOW_PARTIAL_LEVELS) {
+				if (!ETASettings.SHOW_PARTIAL_LEVELS) {
 					return level;
 				}
 				progress = Math.floor(progress);
@@ -1066,7 +1070,7 @@ function script() {
 				let finishedTimeSkill = AddSecondsToDate(now, timeLeftSkill);
 				timeLeftSkillElement = wrapTimeLeft(
 					timeLeftToHTML(
-						timeRemainingSettings.getTargetLevel(initial.skillID),
+						ETASettings.getTargetLevel(initial.skillID),
 						secondsToHms(timeLeftSkill),
 						DateFormat(now, finishedTimeSkill),
 					),
@@ -1292,6 +1296,14 @@ function script() {
 			// Only load script after game has opened
 			clearInterval(scriptLoader);
 			injectScript(script);
+			// load settings from local storage
+			const stored = window.JSON.parse(localStorage['ETASettings']);
+			Object.getOwnPropertyNames(stored).forEach(x => {
+				ETASettings[x] = stored[x];
+			});
+			ETASettings.save();
+			// regularly save settings to local storage
+			setInterval(ETASettings.save, 1000)
 		}
 	}
 
