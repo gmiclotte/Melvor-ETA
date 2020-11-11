@@ -292,8 +292,9 @@ function script() {
 					successRate += 10;
 				}
 				successRate = Math.min(100, successRate) / 100;
+				// stunTime = 3s + time of the failed action, since failure gives no xp or mxp
+				let stunTime = 3000 + adjustedInterval;
 				// compute average time per action
-				let stunTime = 3000;
 				adjustedInterval = adjustedInterval * successRate + stunTime * (1 - successRate);
 				break;
 		}
