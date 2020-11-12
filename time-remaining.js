@@ -1334,11 +1334,13 @@ function script() {
 			clearInterval(scriptLoader);
 			injectScript(script);
 			// load settings from local storage
-			const stored = window.JSON.parse(localStorage['ETASettings']);
-			Object.getOwnPropertyNames(stored).forEach(x => {
-				ETASettings[x] = stored[x];
-			});
-			ETASettings.save();
+			if (localStorage['ETASettings'] !== undefined) {
+				const stored = window.JSON.parse(localStorage['ETASettings']);
+				Object.getOwnPropertyNames(stored).forEach(x => {
+					ETASettings[x] = stored[x];
+				});
+				ETASettings.save();
+			}
 			// regularly save settings to local storage
 			setInterval(ETASettings.save, 1000)
 		}
