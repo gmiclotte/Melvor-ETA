@@ -374,6 +374,13 @@ function script() {
 				let burnXp = 1 * burnChance;
 				return cookXp + burnXp;
 			}
+
+			case CONSTANTS.skill.Fishing: {
+				let junkChance = calcJunkChance(initial, masteryXp, poolXp);
+				let fishXp = initial.itemXp * (1 - junkChance);
+				let junkXp = 1 * junkChance;
+				return fishXp + junkXp;
+			}
 		}
 		return initial.itemXp * xpMultiplier;
 	}
@@ -704,6 +711,12 @@ function script() {
 			let burnChance = calcBurnChance(masteryXp);
 			xpToAdd *= (1 - burnChance);
 		}
+		// Fishing junk gives no mastery xp
+		if (initial.skillID === CONSTANTS.skill.Fishing) {
+			let junkChance = calcJunkChance(initial, masteryXp, poolXp);
+			xpToAdd *= (1 - junkChance);
+		}
+		// return average mastery xp per action
 		return xpToAdd;
 	}
 
@@ -729,6 +742,28 @@ function script() {
 		}
 		burnChance = 1 - (1 - primaryBurnChance) * (1 - secondaryBurnChance);
 		return burnChance;
+	}
+
+	// calculate junk chance
+	function calcJunkChance(initial, masteryXp, poolXp) {
+		// base
+		let junkChance = fishingAreas[initial.currentAction].junkChance;
+		// mastery turns 3% junk in 3% special
+		let masteryLevel = convertXpToLvl(masteryXp);
+		if (masteryLevel >= 50) {
+			junkChance -= 3;
+		}
+		// potion
+		if (herbloreBonuses[7].bonus[0] === 0 && herbloreBonuses[7].charges > 0) {
+			junkChance -= herbloreBonuses[7].bonus[1];
+		}
+		// no junk if mastery level > 65 or pool > 25%
+		if (masteryLevel >= 65
+			|| junkChance < 0
+			|| poolXp >= initial.poolLim[1]) {
+			junkChance = 0;
+		}
+		return junkChance / 100;
 	}
 
 	function currentVariables(initial, resources) {
