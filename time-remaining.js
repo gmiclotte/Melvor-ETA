@@ -21,6 +21,9 @@ function script() {
 
 	// settings can be changed from the console, the default values here will be overwritten by the values in localStorage['ETASettings']
 	window.ETASettings = {
+		/*
+			toggles
+		 */
 		// true for 12h clock (AM/PM), false for 24h clock
 		IS_12H_CLOCK: false,
 		// true for short clock `xxhxxmxxs`, false for long clock `xx hours, xx minutes and xx seconds`
@@ -32,26 +35,58 @@ function script() {
 		// true will show the current xp/h and mastery xp/h; false shows average if using all resources
 		// does not affect anything if SHOW_XP_RATE is false
 		CURRENT_RATES: false,
-		// Default target level is 99, this can be changed
-		GLOBAL_TARGET_LEVEL: 99,
-		// skill specific target levels can be defined here, these can override the global target level
-		TARGET_LEVEL: {
-			// [CONSTANTS.skill.Firemaking]: 120,
-		},
 		// set to true to include mastery tokens in time until 100% pool
 		USE_TOKENS: false,
 		// set to true to show partial level progress in the ETA tooltips
 		SHOW_PARTIAL_LEVELS: false,
-		// returns the appropriate target level
-		getTargetLevel: (skillID) => {
-			if (ETASettings.TARGET_LEVEL[skillID] === undefined) {
-				return ETASettings.GLOBAL_TARGET_LEVEL;
-			}
-			return ETASettings.TARGET_LEVEL[skillID];
+
+		/*
+			targets
+		 */
+		// Default global target level / mastery / pool% is 99 / 99 / 100
+		GLOBAL_TARGET_LEVEL: 99,
+		GLOBAL_TARGET_MASTERY: 99,
+		GLOBAL_TARGET_POOL: 100,
+		// skill specific targets can be defined here, these override the global targets
+		TARGET_LEVEL: {
+			// [CONSTANTS.skill.Firemaking]: 120,
 		},
+		TARGET_MASTERY: {
+			// [CONSTANTS.skill.Herblore]: 90,
+		},
+		TARGET_POOL: {
+			// [CONSTANTS.skill.Crafting]: 25,
+		},
+		// returns the appropriate target
+		getTarget: (global, specific, defaultTarget) => {
+			let target = defaultTarget;
+			if (Number.isInteger(global)) {
+				target = global;
+			}
+			if (Number.isInteger(specific)) {
+				target = specific;
+			}
+			if (target <= 0) {
+				target = defaultTarget;
+			}
+ 			return Math.ceil(target);
+		},
+		getTargetLevel: (skillID) => {
+			return ETASettings.getTarget(ETASettings.GLOBAL_TARGET_LEVEL, ETASettings.TARGET_LEVEL[skillID], 99);
+		},
+		getTargetMastery: (skillID) => {
+			return ETASettings.getTarget(ETASettings.GLOBAL_TARGET_MASTERY, ETASettings.TARGET_MASTERY[skillID], 99);
+		},
+		getTargetPool: (skillID) => {
+			return ETASettings.getTarget(ETASettings.GLOBAL_TARGET_POOL, ETASettings.TARGET_POOL[skillID], 100);
+		},
+
+		/*
+			methods
+		 */
 		// save settings to local storage
 		save: () => {
-			localStorage['ETASettings'] = window.JSON.stringify(window.ETASettings);
+			localStorage['ETASettings'] = window.JSON.stringify(ETASettings);
 		}
 	};
 
@@ -374,6 +409,7 @@ function script() {
 			totalMasteryLevel: 0,
 			poolXp: 0,
 			maxPoolXp: 0,
+			targetPoolXp: 0,
 			masteryLim: [], // Xp needed to reach next level
 			skillLim: [], // Xp needed to reach next level
 			poolLim: [], // Xp need to reach next pool checkpoint
@@ -388,14 +424,14 @@ function script() {
 			// Generate default values for script
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
 			maxXp: convertLvlToXp(ETASettings.getTargetLevel(skillID)),
-			maxMasteryXp: convertLvlToXp(99),
+			maxMasteryXp: convertLvlToXp(ETASettings.getTargetMastery(skillID)),
 			tokens: 0,
 		}
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
 		initial.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
 		initial.masteryLimLevel.push(Infinity);
-		//Breakpoints for mastery bonuses - default all levels starting at 2 to 199, followed by Infinity
-		initial.skillLimLevel = Array.from({ length: 198 }, (_, i) => i + 2);
+		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
+		initial.skillLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
 		initial.skillLimLevel.push(Infinity);
 		// Chance to keep at breakpoints - default 0.2% per level
 		initial.chanceToKeep = Array.from({ length: 99 }, (_, i) => i *0.002);
@@ -685,7 +721,7 @@ function script() {
 			maxPoolTime: 0,
 			maxMasteryTime: 0,
 			maxSkillTime: 0,
-			maxPoolReached: initial.poolXp >= initial.maxPoolXp,
+			maxPoolReached: initial.poolXp >= initial.targetPoolXp,
 			masteryXp: initial.masteryXp,
 			skillXp: initial.skillXp,
 			poolXp: initial.poolXp,
@@ -718,9 +754,16 @@ function script() {
 		}
 
 		// Distance to Limits
-		const skillXpToLimit = initial.skillLim.find(element => element > current.skillXp) - current.skillXp;
-		const masteryXpToLimit = initial.masteryLim.find(element => element > current.masteryXp) - current.masteryXp;
-		const poolXpToLimit = initial.poolLim.find(element => element > current.poolXp) - current.poolXp;
+		getLim = (lims, xp, max) => {
+			const lim = lims.find(element => element > xp);
+			if (xp < max && max < lim) {
+				return Math.ceil(max);
+			}
+			return Math.ceil(lim);
+		}
+		const skillXpToLimit = getLim(initial.skillLim, current.skillXp, initial.maxXp) - current.skillXp;
+		const masteryXpToLimit = getLim(initial.masteryLim, current.masteryXp, initial.maxMasteryXp) - current.masteryXp;
+		const poolXpToLimit = getLim(initial.poolLim, current.poolXp, initial.targetPoolXp) - current.poolXp;
 
 		// Actions to limits
 		const skillXpActions = skillXpToLimit / xpPerAction;
@@ -785,7 +828,7 @@ function script() {
 			current.maxMasteryTime = current.sumTotalTime;
 			current.maxMasteryReached = true;
 		}
-		if (!current.maxPoolReached && initial.maxPoolXp <= current.poolXp) {
+		if (!current.maxPoolReached && initial.targetPoolXp <= current.poolXp) {
 			current.maxPoolTime = current.sumTotalTime;
 			current.maxPoolReached = true;
 		}
@@ -837,14 +880,14 @@ function script() {
 		poolH = (poolH + tokensH / 1000) * 100;
 		// method to convert final pool xp to percentage
 		const poolCap = ETASettings.UNCAP_POOL ? Infinity : 100
-		const poolXpToPercentage = (poolXp, maxPoolXp) => Math.min((poolXp / maxPoolXp) * 100, poolCap).toFixed(2);
+		const poolXpToPercentage = poolXp => Math.min((poolXp / initial.maxPoolXp) * 100, poolCap).toFixed(2);
 		// create result object
 		let expectedTime = {
 			"timeLeft": Math.round(current.sumTotalTime),
 			"actions": current.actions,
 			"finalSkillXp" : current.skillXp,
 			"finalMasteryXp" : current.masteryXp,
-			"finalPoolPercentage" : poolXpToPercentage(current.poolXp, initial.maxPoolXp),
+			"finalPoolPercentage" : poolXpToPercentage(current.poolXp),
 			"maxPoolTime" : current.maxPoolTime,
 			"maxMasteryTime" : current.maxMasteryTime,
 			"maxSkillTime" : current.maxSkillTime,
@@ -861,7 +904,7 @@ function script() {
 		if (initial.isGathering) {
 			expectedTime.finalSkillXp = current.skillXp;
 			expectedTime.finalMasteryXp = current.masteryXp;
-			expectedTime.finalPoolPercentage = poolXpToPercentage(current.poolXp, initial.maxPoolXp);
+			expectedTime.finalPoolPercentage = poolXpToPercentage(current.poolXp);
 			expectedTime.tokens = current.tokens;
 		}
 		// set time to targets
@@ -941,6 +984,10 @@ function script() {
 		if (!initial.isMagic) {
 			initial.poolXp = MASTERY[initial.skillID].pool;
 			initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
+			initial.targetPoolXp = initial.maxPoolXp;
+			if (ETASettings.getTargetPool(initial.skillID) !== 100) {
+				initial.targetPoolXp = initial.maxPoolXp / 100 * ETASettings.getTargetPool(initial.skillID);
+			}
 			initial.totalMasteryLevel = getTotalMasteryLevelForSkill(initial.skillID);
 			if (initial.isGathering) {
 				initial.masteryID = initial.currentAction;
@@ -1111,7 +1158,7 @@ function script() {
 				let finishedTimeMastery = AddSecondsToDate(now, timeLeftMastery);
 				timeLeftMasteryElement = wrapTimeLeft(
 					timeLeftToHTML(
-						99,
+						ETASettings.getTargetMastery(initial.skillID),
 						secondsToHms(timeLeftMastery),
 						DateFormat(now, finishedTimeMastery),
 					),
@@ -1130,7 +1177,7 @@ function script() {
 					+ (timeLeftPool === 0
 						? ''
 						: timeLeftToHTML(
-							"100%",
+							`${ETASettings.getTargetPool(initial.skillID)}%`,
 							secondsToHms(timeLeftPool),
 							DateFormat(now, finishedTimePool),
 						)
