@@ -631,6 +631,23 @@ function script() {
 		return configureGathering(initial);
 	}
 
+	function configureFishing(initial) {
+		initial.item = items[fishingItems[fishingAreas[initial.currentAction].fish[initial.fishID]].itemID];
+		initial.itemXp = initial.item.fishingXP;
+		// base avg interval
+		let avgRoll = 0.5;
+		const max = initial.item.maxFishingInterval;
+		const min = initial.item.minFishingInterval;
+		initial.skillInterval = Math.floor(avgRoll * (max - min)) + min;
+		// handle gear and rod
+		let fishingAmuletBonus = 1;
+		if (equippedItems.includes(CONSTANTS.item.Amulet_of_Fishing)) {
+			fishingAmuletBonus = 1 - items[CONSTANTS.item.Amulet_of_Fishing].fishingSpeedBonus / 100;
+		}
+		initial.skillInterval = Math.floor(initial.skillInterval * fishingAmuletBonus * (1 - rodBonusSpeed[currentRod] / 100));
+		return configureGathering(initial);
+	}
+
 	// Calculate mastery xp based on unlocked bonuses
 	function calcMasteryXpToAdd(initial, timePerAction, skillXp, masteryXp, poolXp, totalMasteryLevel) {
 		let xpModifier = 1;
@@ -932,8 +949,18 @@ function script() {
 				case CONSTANTS.skill.Woodcutting:
 					data = trees;
 					break;
+
+				case CONSTANTS.skill.Fishing:
+					data = fishingAreas;
+					break;
 			}
 			data.forEach((_, i) => {
+				if (initial.skillID === CONSTANTS.skill.Fishing) {
+					initial.fishID = selectedFish[i];
+					if (initial.fishID === null) {
+						return;
+					}
+				}
 				initial.currentAction = i;
 				timeRemaining(initial)
 			});
@@ -978,6 +1005,9 @@ function script() {
 				break;
 			case CONSTANTS.skill.Woodcutting:
 				initial = configureWoodcutting(initial);
+				break;
+			case CONSTANTS.skill.Fishing:
+				initial = configureFishing(initial);
 				break;
 		}
 		// Configure initial mastery values for all skills with masteries
@@ -1264,14 +1294,16 @@ function script() {
 		["Mining", "mineRock"],
 		["Thieving", "pickpocket"],
 		["Woodcutting", "cutTree"],
+		["Fishing", "startFishing"],
+		["Fishing", "selectFish"],
 	].forEach(skill => {
 		let skillName = skill[0];
 		// wrap the start method
 		let startName = skill[1];
 		// original methods are kept in the startRef object
-		startRef[skillName] = window[startName];
+		startRef[startName] = window[startName];
 		window[startName] = function(...args) {
-			startRef[skillName](...args);
+			startRef[startName](...args);
 			try {
 				timeRemainingWrapper(CONSTANTS.skill[skillName]);
 			} catch (e) {
@@ -1286,6 +1318,9 @@ function script() {
 		switch (args[0]) {
 			case 0:
 				skillName = "Woodcutting";
+				break;
+			case 7:
+				skillName = "Fishing";
 				break;
 			case 10:
 				skillName = "Mining";
@@ -1339,6 +1374,12 @@ function script() {
 		});
 	}
 	makeWoodcuttingDisplay();
+	function makeFishingDisplay() {
+		fishingAreas.forEach((_, i) => {
+			$(`#fishing-area-${i}-selected-fish-xp`).after(tempContainer(`timeLeftFishing-${i}`))
+		});
+	}
+	makeFishingDisplay();
 
 	// Mastery Pool progress
 	for(let id in SKILLS) {
