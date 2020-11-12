@@ -602,6 +602,7 @@ function script() {
 		initial.skillReq = [];
 		initial.chanceToKeep = initial.chanceToKeep.map(_ => 0); // No chance to keep for gathering
 		initial.recordCraft = 0;
+		initial.masteryID = initial.currentAction;
 		return initial;
 	}
 
@@ -652,7 +653,10 @@ function script() {
 			fishingAmuletBonus = 1 - items[CONSTANTS.item.Amulet_of_Fishing].fishingSpeedBonus / 100;
 		}
 		initial.skillInterval = Math.floor(initial.skillInterval * fishingAmuletBonus * (1 - rodBonusSpeed[currentRod] / 100));
-		return configureGathering(initial);
+		initial = configureGathering(initial);
+		// correctly set masteryID
+		initial.masteryID = fishingAreas[initial.currentAction].fish[initial.fishID];
+		return initial
 	}
 
 	// Calculate mastery xp based on unlocked bonuses
@@ -1054,9 +1058,7 @@ function script() {
 				initial.targetPoolXp = initial.maxPoolXp / 100 * ETASettings.getTargetPool(initial.skillID);
 			}
 			initial.totalMasteryLevel = getTotalMasteryLevelForSkill(initial.skillID);
-			if (initial.isGathering) {
-				initial.masteryID = initial.currentAction;
-			} else {
+			if (!initial.isGathering) {
 				initial.masteryID = items[initial.item].masteryID[1];
 			}
 			initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
