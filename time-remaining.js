@@ -660,18 +660,21 @@ function script() {
 	}
 
 	// Calculate mastery xp based on unlocked bonuses
-	function calcMasteryXpToAdd(initial, timePerAction, skillXp, masteryXp, poolXp, totalMasteryLevel) {
+	function calcMasteryXpToAdd(initial, current, timePerAction) {
 		let xpModifier = 1;
 		// General Mastery Xp formula
-		let xpToAdd = (((calcTotalUnlockedItems(initial.skillID, skillXp) * totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID) + convertXpToLvl(masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)) * (timePerAction / 1000)) / 2;
+		let xpToAdd = (
+			(calcTotalUnlockedItems(initial.skillID, current.skillXp) * current.totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID)
+			+ convertXpToLvl(current.masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)
+		) * (timePerAction / 1000) / 2;
 		// Skill specific mastery pool modifier
-		if (poolXp >= initial.poolLim[0]) {
+		if (current.poolXp >= initial.poolLim[0]) {
 			xpModifier += 0.05;
 		}
 		// Firemaking pool and log modifiers
 		if (initial.skillID === CONSTANTS.skill.Firemaking) {
 			// If current skill is Firemaking, we need to apply mastery progression from actions and use updated poolXp values
-			if (poolXp >= initial.poolLim[3]) {
+			if (current.poolXp >= initial.poolLim[3]) {
 				xpModifier += 0.05;
 			}
 			for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
@@ -683,7 +686,7 @@ function script() {
 				}
 			}
 			// The log you are burning
-			if (convertXpToLvl(masteryXp) >= 99) {
+			if (convertXpToLvl(current.masteryXp) >= 99) {
 				xpModifier += 0.0025;
 			}
 		} else {
@@ -707,17 +710,18 @@ function script() {
 		}
 		// Combine base and modifiers
 		xpToAdd *= xpModifier;
+		// minimum 1 mastery xp per action
 		if (xpToAdd < 1) {
 			xpToAdd = 1;
 		}
 		// BurnChance affects average mastery Xp
 		if (initial.skillID === CONSTANTS.skill.Cooking) {
-			let burnChance = calcBurnChance(masteryXp);
+			let burnChance = calcBurnChance(current.masteryXp);
 			xpToAdd *= (1 - burnChance);
 		}
 		// Fishing junk gives no mastery xp
 		if (initial.skillID === CONSTANTS.skill.Fishing) {
-			let junkChance = calcJunkChance(initial, masteryXp, poolXp);
+			let junkChance = calcJunkChance(initial, current.masteryXp, current.poolXp);
 			xpToAdd *= (1 - junkChance);
 		}
 		// return average mastery xp per action
@@ -801,7 +805,7 @@ function script() {
 
 		// Current Xp
 		const xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
-		const masteryXpPerAction = calcMasteryXpToAdd(initial, currentInterval, current.skillXp, current.masteryXp, current.poolXp, current.totalMasteryLevel);
+		const masteryXpPerAction = calcMasteryXpToAdd(initial, current, currentInterval);
 		let poolXpPerAction = calcPoolXpToAdd(current.skillXp, masteryXpPerAction);
 		const tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp);
 		const tokenXpPerAction = initial.maxPoolXp / 1000 * tokensPerAction;
