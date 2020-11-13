@@ -1061,7 +1061,7 @@ function script() {
 			if (ETASettings.getTargetPool(initial.skillID) !== 100) {
 				initial.targetPoolXp = initial.maxPoolXp / 100 * ETASettings.getTargetPool(initial.skillID);
 			}
-			initial.totalMasteryLevel = getTotalMasteryLevelForSkill(initial.skillID);
+			initial.totalMasteryLevel = getCurrentTotalMasteryLevelForSkill(initial.skillID);
 			if (!initial.isGathering) {
 				initial.masteryID = items[initial.item].masteryID[1];
 			}
