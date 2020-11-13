@@ -922,8 +922,9 @@ function script() {
 			const initialInterval = intervalAdjustment(initial, initial.poolXp, initial.masteryXp);
 			const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
 			xpH = skillXpAdjustment(initial, initial.poolXp, initial.masteryXp) / initialAverageActionTime * 1000 * 3600;
-			// compute current mastery xp / h using the getMasteryXpToAdd from the game
-			const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
+			// compute current mastery xp / h using the getMasteryXpToAdd from the game or the method from this script
+			//const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
+			const masteryXpPerAction = calcMasteryXpToAdd(initial, initial, initialInterval);
 			masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
 			// pool percentage per hour
 			poolH = calcPoolXpToAdd(current.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
