@@ -822,7 +822,7 @@ function script() {
 			return Math.ceil(lim);
 		}
 		const skillXpToLimit = getLim(initial.skillLim, current.skillXp, initial.maxXp) - current.skillXp;
-		const masteryXpToLimit = getLim(initial.masteryLim, current.masteryXp, initial.maxMasteryXp) - current.masteryXp;
+		const masteryXpToLimit = getLim(initial.skillLim, current.masteryXp, initial.maxMasteryXp) - current.masteryXp;
 		const poolXpToLimit = getLim(initial.poolLim, current.poolXp, initial.targetPoolXp) - current.poolXp;
 
 		// Actions to limits
