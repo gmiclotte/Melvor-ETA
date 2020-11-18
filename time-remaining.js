@@ -790,21 +790,29 @@ function script() {
 
 	function currentVariables(initial, resources) {
 		let current = {
-			resources: resources,
 			sumTotalTime: 0,
-			maxPoolTime: 0,
-			maxMasteryTime: 0,
-			maxSkillTime: 0,
-			maxPoolReached: initial.poolXp >= initial.targetPoolXp,
-			masteryXp: initial.masteryXp,
+			// skill
 			skillXp: initial.skillXp,
-			poolXp: initial.poolXp,
-			maxMasteryReached: initial.masteryXp >= initial.maxMasteryXp,
 			maxSkillReached: initial.skillXp >= initial.maxXp,
+			maxSkillTime: 0,
+			maxSkillResources: 0,
+			// mastery
+			masteryXp: initial.masteryXp,
+			maxMasteryReached: initial.masteryXp >= initial.maxMasteryXp,
+			maxMasteryTime: 0,
+			maxMasteryResources: 0,
+			// pool
+			poolXp: initial.poolXp,
+			maxPoolReached: initial.poolXp >= initial.targetPoolXp,
+			maxPoolTime: 0,
+			maxPoolResources: 0,
 			totalMasteryLevel: initial.totalMasteryLevel,
+			// items
+			resources: resources,
 			chargeUses: 0, // estimated remaining charge uses
-			actions: 0, // estimated number of actions taken so far
 			tokens: initial.tokens,
+			// estimated number of actions taken so far
+			actions: 0,
 		};
 		return current;
 	}
@@ -847,16 +855,22 @@ function script() {
 		// Minimum actions based on limits
 		let expectedActions = Math.ceil(Math.min(masteryXpActions, skillXpActions, poolXpActions));
 
-		// Take away resources based on expectedActions
+		// estimate actions remaining with current resources
+		let resourceActions = 0;
 		if (!noResources) {
 			// estimate amount of actions possible with remaining resources
 			// number of actions with rhaelyx charges
-			let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
+			resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
 			// remaining resources
 			const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation));
 			// add number of actions without rhaelyx charges
 			resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
 			expectedActions = Math.min(expectedActions, resourceActions);
+			// estimate total remaining actions
+			current.actions += expectedActions;
+		}
+		// Take away resources based on expectedActions
+		if (!initial.isGathering) {
 			// Update remaining Rhaelyx Charge uses
 			current.chargeUses -= expectedActions;
 			if (current.chargeUses < 0) {
@@ -878,10 +892,7 @@ function script() {
 				}
 				current.resources = Math.round(current.resources - resUsed);
 			}
-			// estimate total remaining actions
-			current.actions += expectedActions;
 		}
-
 		// time for current loop
 		const timeToAdd = expectedActions * averageActionTime;
 		// gain tokens, unless we're using them
@@ -897,14 +908,17 @@ function script() {
 		if (!current.maxSkillReached && initial.maxXp <= current.skillXp) {
 			current.maxSkillTime = current.sumTotalTime;
 			current.maxSkillReached = true;
+			current.maxSkillResources = initial.recordCraft - current.resources;
 		}
 		if (!current.maxMasteryReached && initial.maxMasteryXp <= current.masteryXp) {
 			current.maxMasteryTime = current.sumTotalTime;
 			current.maxMasteryReached = true;
+			current.maxMasteryResources = initial.recordCraft - current.resources;
 		}
 		if (!current.maxPoolReached && initial.targetPoolXp <= current.poolXp) {
 			current.maxPoolTime = current.sumTotalTime;
 			current.maxPoolReached = true;
+			current.maxPoolResources = initial.recordCraft - current.resources;
 		}
 		// Level up mastery if hitting Mastery limit
 		if (expectedActions === masteryXpActions) {
@@ -987,6 +1001,7 @@ function script() {
 		expectedTime.maxMasteryTime = current.maxMasteryTime;
 		expectedTime.maxPoolTime = current.maxPoolTime;
 		// return the resulting data object
+		expectedTime.current = current;
 		return expectedTime;
 	}
 
@@ -1120,6 +1135,7 @@ function script() {
 		let timeLeftMastery = 0;
 		let timeLeftSkill = 0;
 		let tokens = 0;
+		let current = {};
 		if (initial.isMagic) {
 			timeLeft = Math.round(initial.recordCraft * initial.skillInterval / 1000);
 		} else {
@@ -1129,6 +1145,7 @@ function script() {
 			timeLeftMastery = Math.round(results.maxMasteryTime / 1000);
 			timeLeftSkill = Math.round(results.maxSkillTime / 1000);
 			tokens = Math.round(results.tokens);
+			current = results.current;
 		}
 
 		//Global variables to keep track of when a craft is complete
@@ -1154,14 +1171,14 @@ function script() {
 			} else if (timeLeft === 0) {
 				timeLeftElement.textContent = "No resources!";
 			} else if (!ETASettings.SHOW_XP_RATE || initial.isMagic) {
-				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n Finishes: " + DateFormat(now, finishedTime);
+				timeLeftElement.textContent = "Will take: " + secondsToHms(timeLeft) + "\r\n ETA: " + DateFormat(now, finishedTime);
 			} else {
 				timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.xpH))
 					+ "\r\nMXp/h: " + formatNumber(Math.floor(results.masteryXpH))
 					+ `\r\nPool/h: ${results.poolH.toFixed(2)}%`
 					+ "\r\nActions: " + formatNumber(results.actions)
 					+ "\r\nTime: " + secondsToHms(timeLeft)
-					+ "\r\nFinishes: " + DateFormat(now, finishedTime);
+					+ "\r\nETA: " + DateFormat(now, finishedTime);
 			}
 			timeLeftElement.style.display = "block";
 		}
@@ -1195,11 +1212,21 @@ function script() {
 					+ '    </h3>'
 					+ '</div>';
 			}
-			const timeLeftToHTML = (target, time, finish) => {
+			const timeLeftToHTML = (target, time, finish, resources) => {
 				return ''
 					+ `Time to ${target}: ${time}`
-					+ '        <br>'
-					+ `Finishes: ${finish}`;
+					+ resourcesLeftToHTML(resources)
+					+ '<br>'
+					+ `ETA: ${finish}`;
+			}
+			const resourcesLeftToHTML = (resources) => {
+				if (initial.isGathering || resources === 0) {
+					return '';
+				}
+				let req = initial.skillReq.map(x =>
+					`<span>${formatNumber(x.qty * resources)}</span><img class="skill-icon-xs mr-2" src="${items[x.id].media}">`
+				).join('');
+				return `<br/>Requires: ${req}`;
 			}
 			const wrapTimeLeft = (s) => {
 				return ''
@@ -1232,6 +1259,7 @@ function script() {
 						ETASettings.getTargetLevel(initial.skillID),
 						secondsToHms(timeLeftSkill),
 						DateFormat(now, finishedTimeSkill),
+						current.maxSkillResources,
 					),
 				);
 			}
@@ -1247,6 +1275,7 @@ function script() {
 						ETASettings.getTargetMastery(initial.skillID),
 						secondsToHms(timeLeftMastery),
 						DateFormat(now, finishedTimeMastery),
+						current.maxMasteryResources,
 					),
 				);
 			}
@@ -1266,6 +1295,7 @@ function script() {
 							`${ETASettings.getTargetPool(initial.skillID)}%`,
 							secondsToHms(timeLeftPool),
 							DateFormat(now, finishedTimePool),
+							current.maxPoolResources,
 						)
 					),
 				);
