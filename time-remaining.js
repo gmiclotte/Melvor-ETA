@@ -1216,9 +1216,9 @@ function script() {
 			const timeLeftToHTML = (target, time, finish, resources) => {
 				return ''
 					+ `Time to ${target}: ${time}`
-					+ resourcesLeftToHTML(resources)
 					+ '<br>'
-					+ `ETA: ${finish}`;
+					+ `ETA: ${finish}`
+					+ resourcesLeftToHTML(resources);
 			}
 			const resourcesLeftToHTML = (resources) => {
 				if (ETASettings.HIDE_REQUIRED || initial.isGathering || resources === 0) {
