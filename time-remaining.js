@@ -126,31 +126,45 @@ function script() {
 	}
 
 	// Convert seconds to hours/minutes/seconds and format them
-	function secondsToHms(d, isShortClock = ETASettings.IS_SHORT_CLOCK) {
-		d = Number(d);
-		// split seconds in hours, minutes and seconds
-		let h = Math.floor(d / 3600);
-		let m = Math.floor(d % 3600 / 60);
-		let s = Math.floor(d % 3600 % 60);
+	function secondsToHms(time, isShortClock = ETASettings.IS_SHORT_CLOCK) {
+		time = Number(time);
+		// split seconds in days, hours, minutes and seconds
+		let d = Math.floor(time / 86400)
+		let h = Math.floor(time % 86400 / 3600);
+		let m = Math.floor(time % 3600 / 60);
+		let s = Math.floor(time % 60);
 		// no comma in short form
 		// ` and ` if hours and minutes or hours and seconds
 		// `, ` if hours and minutes and seconds
+		let dDisplayComma = " ";
+		if (!isShortClock && d > 0) {
+			let count = (h > 0) + (m > 0) + (s > 0);
+			if (count === 1) {
+				dDisplayComma = " and ";
+			} else if (count > 1) {
+				dDisplayComma = ", ";
+			}
+		}
 		let hDisplayComma = " ";
 		if (!isShortClock && h > 0) {
-			if ((m === 0 && s > 0) || (s === 0 && m > 0)) {
+			let count = (m > 0) + (s > 0);
+			if (count === 1) {
 				hDisplayComma = " and ";
-			} else if (s > 0 && m > 0) {
+			} else if (count > 1) {
 				hDisplayComma = ", ";
 			}
 		}
 		// no comma in short form
 		// ` and ` if minutes and seconds
 		let mDisplayComma = " ";
-		if (!isShortClock && m > 0 && s > 0) {
-			mDisplayComma = " and ";
+		if (!isShortClock && m > 0) {
+			if (s > 0) {
+				mDisplayComma = " and ";
+			}
 		}
 		// append h/hour/hours etc depending on isShortClock, then concat and return
-		return appendName(h, "hour", isShortClock) + hDisplayComma
+		return appendName(d, "day", isShortClock) + dDisplayComma
+			+ appendName(h, "hour", isShortClock) + hDisplayComma
 			+ appendName(m, "minute", isShortClock) + mDisplayComma
 			+ appendName(s, "second", isShortClock);
 	}
