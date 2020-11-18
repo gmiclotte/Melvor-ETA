@@ -39,7 +39,8 @@ function script() {
 		USE_TOKENS: false,
 		// set to true to show partial level progress in the ETA tooltips
 		SHOW_PARTIAL_LEVELS: false,
-
+		// set to true to hide the required resources in the ETA tooltips
+		HIDE_REQUIRED: false,
 		/*
 			targets
 		 */
@@ -1220,7 +1221,7 @@ function script() {
 					+ `ETA: ${finish}`;
 			}
 			const resourcesLeftToHTML = (resources) => {
-				if (initial.isGathering || resources === 0) {
+				if (ETASettings.HIDE_REQUIRED || initial.isGathering || resources === 0) {
 					return '';
 				}
 				let req = initial.skillReq.map(x =>
