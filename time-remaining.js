@@ -380,7 +380,9 @@ function script() {
 		let xpMultiplier = 1;
 		switch (initial.skillID) {
 			case CONSTANTS.skill.Runecrafting:
-				if (poolXp >= initial.poolLim[1] && items[initial.item].type === "Rune") xpMultiplier += 1.5;
+				if (poolXp >= initial.poolLim[1] && items[initial.item].type === "Rune") {
+					xpMultiplier += 1.5;
+				}
 				break;
 
 			case CONSTANTS.skill.Cooking: {
@@ -395,6 +397,15 @@ function script() {
 				let fishXp = initial.itemXp * (1 - junkChance);
 				let junkXp = 1 * junkChance;
 				return fishXp + junkXp;
+			}
+
+			case CONSTANTS.skill.Smithing: {
+				if (glovesTracker[CONSTANTS.shop.gloves.Smithing].isActive
+					&& glovesTracker[CONSTANTS.shop.gloves.Smithing].remainingActions > 0 // TODO: handle charge use
+					&& equippedItems[CONSTANTS.equipmentSlot.Gloves] === CONSTANTS.item.Smithing_Gloves) {
+					xpMultiplier += 0.5;
+				}
+				break;
 			}
 		}
 		return initial.itemXp * xpMultiplier;
