@@ -316,6 +316,9 @@ function script() {
 				}
 				// compute average time per action
 				let spawnTime = miningData[initial.currentAction].respawnInterval;
+				if (poolXp > initial.poolLim[1]) {
+					spawnTime *= 0.9;
+				}
 				adjustedInterval = (adjustedInterval * rockHP + spawnTime) / rockHP;
 				break;
 
