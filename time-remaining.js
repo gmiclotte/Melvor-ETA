@@ -1092,7 +1092,7 @@ function script() {
 			"maxPoolTime" : current.maxPoolTime,
 			"maxMasteryTime" : current.maxMasteryTime,
 			"maxSkillTime" : current.maxSkillTime,
-			"rates": rates(initial),
+			"rates": rates(initial, current),
 			"tokens": current.tokens,
 		};
 		// continue calculations until time to all targets is found
