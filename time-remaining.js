@@ -616,11 +616,14 @@ function script() {
 			}
 		}
 		// Get Rune discount
+		let capeMultiplier = 1;
+		if (skillCapeEquipped(CONSTANTS.item.Magic_Skillcape)) {
+			// Add cape multiplier
+			capeMultiplier = 2;
+		}
 		for (let i = 0; i < initial.skillReq.length; i++) {
 			if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune !== undefined) {
 				if (items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRune.includes(initial.skillReq[i].id)) {
-					let capeMultiplier = 1;
-					if (skillCapeEquipped(CONSTANTS.item.Magic_Skillcape)) capeMultiplier = 2; // Add cape multiplier
 					initial.skillReq[i].qty -= items[equippedItems[CONSTANTS.equipmentSlot.Weapon]].providesRuneQty * capeMultiplier;
 				}
 			}
