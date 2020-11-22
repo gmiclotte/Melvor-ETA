@@ -41,6 +41,11 @@ function script() {
 		SHOW_PARTIAL_LEVELS: false,
 		// set to true to hide the required resources in the ETA tooltips
 		HIDE_REQUIRED: false,
+		// set to true to play a sound when we run out of resources or reach a target
+		DING_RESOURCES: true,
+		DING_LEVEL: true,
+		DING_MASTERY: true,
+		DING_POOL: true,
 		/*
 			targets
 		 */
@@ -93,12 +98,27 @@ function script() {
 
 	// Function to check if task is complete
 	function taskComplete(skillID) {
-		if (window.timeLeftLast > 1 && window.timeLeftCurrent === 0) {
-			notifyPlayer(skillID, "Task Done", "danger");
-			console.log('Melvor ETA: task done');
-			let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
-			ding.volume=0.1;
-			ding.play();
+		if (window.timeLeftLast === undefined) {
+			return;
+		}
+		if (window.timeLeftLast[0] !== window.timeLeftCurrent[0]) {
+			// started a different skill, don't ping
+			return;
+		}
+		if (window.timeLeftLast[1] !== window.timeLeftCurrent[1]) {
+			// started a different action, don't ping
+			return;
+		}
+		// ping if any targets were reached
+		for (let i = 2; i < window.timeLeftLast.length; i++) {
+			if (window.timeLeftLast[i] > 1 && window.timeLeftCurrent[i] === 0) {
+				notifyPlayer(skillID, "Task Done", "danger");
+				console.log('Melvor ETA: task done');
+				let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
+				ding.volume = 0.1;
+				ding.play();
+				return;
+			}
 		}
 	}
 
@@ -582,6 +602,7 @@ function script() {
 	}
 
 	function configureMagic(initial) {
+		initial.currentAction = selectedAltMagic;
 		initial.skillInterval = 2000;
 		//Find need runes for spell
 		if (ALTMAGIC[selectedAltMagic].runesRequiredAlt !== undefined && useCombinationRunes) {
@@ -1203,6 +1224,10 @@ function script() {
 			initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
 		}
 
+		if (!initial.isMagic && !initial.isGathering) {
+			initial.currentAction = initial.item;
+		}
+
 		// Apply itemXp Bonuses from gear and pets
 		initial.itemXp = addXPBonuses(initial.skillID, initial.itemXp);
 
@@ -1260,7 +1285,14 @@ function script() {
 
 		//Global variables to keep track of when a craft is complete
 		window.timeLeftLast = window.timeLeftCurrent;
-		window.timeLeftCurrent = timeLeft;
+		window.timeLeftCurrent = [
+			initial.skillID,
+			initial.currentAction,
+			ETASettings.DING_RESOURCES ? timeLeft : Infinity,
+			ETASettings.DING_LEVEL ? timeLeftSkill : Infinity,
+			ETASettings.DING_MASTERY ? timeLeftMastery : Infinity,
+			ETASettings.DING_POOL ? timeLeftPool : Infinity,
+		];
 
 		//Inject timeLeft HTML
 		let now = new Date();
