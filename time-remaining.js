@@ -985,7 +985,10 @@ function script() {
 			current.maxPoolResources = initial.recordCraft - current.resources;
 		}
 		// Level up mastery if hitting Mastery limit
-		if (expectedActions === masteryXpActions || expectedActions === secondaryMasteryXpPrimaryActions) {
+		if (expectedActions === masteryXpActions) {
+			current.totalMasteryLevel++;
+		}
+		if (expectedActions === secondaryMasteryXpPrimaryActions) {
 			current.totalMasteryLevel++;
 		}
 		// return updated values
