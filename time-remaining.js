@@ -1571,7 +1571,7 @@ function script() {
 		trees.forEach((_, i) => {
 			$(`#tree-rates-${i}`).after(tempContainer(`timeLeftWoodcutting-${i}`))
 		});
-		$('#skill-progress-current-axe').parent().before(tempContainer('timeLeftWoodcutting-Secondary'))
+		$('#skill-woodcutting-multitree').parent().after(tempContainer('timeLeftWoodcutting-Secondary'))
 	}
 	makeWoodcuttingDisplay();
 	function makeFishingDisplay() {
