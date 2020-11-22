@@ -87,7 +87,7 @@ function script() {
 		 */
 		// save settings to local storage
 		save: () => {
-			localStorage['ETASettings'] = window.JSON.stringify(ETASettings);
+			window.localStorage['ETASettings'] = window.JSON.stringify(window.ETASettings);
 		}
 	};
 
@@ -1622,15 +1622,15 @@ function script() {
 			clearInterval(scriptLoader);
 			injectScript(script);
 			// load settings from local storage
-			if (localStorage['ETASettings'] !== undefined) {
-				const stored = window.JSON.parse(localStorage['ETASettings']);
+			if (window.localStorage['ETASettings'] !== undefined) {
+				const stored = window.JSON.parse(window.localStorage['ETASettings']);
 				Object.getOwnPropertyNames(stored).forEach(x => {
-					ETASettings[x] = stored[x];
+					window.ETASettings[x] = stored[x];
 				});
-				ETASettings.save();
+				window.ETASettings.save();
 			}
 			// regularly save settings to local storage
-			setInterval(ETASettings.save, 1000)
+			setInterval(window.ETASettings.save, 1000)
 		}
 	}
 
