@@ -129,7 +129,14 @@ function script() {
 		}
 		// ping if any targets were reached
 		for (let i = 2; i < window.timeLeftLast.length; i++) {
-			if (window.timeLeftLast[i] > 1 && window.timeLeftCurrent[i] === 0) {
+			let ding = false;
+			const last = window.timeLeftLast[i];
+			const current = window.timeLeftCurrent[i];
+			if (last[1] === 0 || current[1] === Infinity) {
+				// target already reached or ding disabled
+				continue;
+			}
+			if (current[2] >= last[0]) { // current level is higher than previous target
 				notifyPlayer(skillID, "Task Done", "danger");
 				console.log('Melvor ETA: task done');
 				let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
@@ -220,7 +227,7 @@ function script() {
 	}
 
 	// Format date 24 hour clock
-	function DateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK, isShortClock = ETASettings.IS_SHORT_CLOCK){
+	function DateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK, isShortClock = ETASettings.IS_SHORT_CLOCK) {
 		let format = {weekday: "short", month: "short", day: "numeric"};
 		let date = then.toLocaleString(undefined, format);
 		if (date === now.toLocaleString(undefined, format)) {
@@ -246,13 +253,17 @@ function script() {
 	}
 
 	// Level to Xp Array
-	const lvlToXp = Array.from({ length: 200 }, (_, i) => exp.level_to_xp(i));
+	const lvlToXp = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
 
 	// Convert level to Xp needed to reach that level
 	function convertLvlToXp(level) {
-		if (level === Infinity) { return Infinity; }
+		if (level === Infinity) {
+			return Infinity;
+		}
 		let xp = 0;
-		if (level === 1) { return xp; }
+		if (level === 1) {
+			return xp;
+		}
 		xp = lvlToXp[level] + 1;
 		return xp;
 	}
@@ -260,10 +271,15 @@ function script() {
 	// Convert Xp value to level
 	function convertXpToLvl(xp, noCap = false) {
 		let level = 1;
-		while (lvlToXp[level] < xp) { level++; }
+		while (lvlToXp[level] < xp) {
+			level++;
+		}
 		level--;
-		if (level < 1) { level = 1; }
-		else if (!noCap && level > 99) { level = 99; }
+		if (level < 1) {
+			level = 1;
+		} else if (!noCap && level > 99) {
+			level = 99;
+		}
 		return level;
 	}
 
@@ -277,28 +293,29 @@ function script() {
 		let currentLevel = convertXpToLvl(currentXp, true);
 		if (currentLevel >= 99 && (type === "mastery" || bar === true)) return 0;
 		let currentLevelXp = convertLvlToXp(currentLevel);
-		let nextLevelXp = convertLvlToXp(currentLevel+1);
+		let nextLevelXp = convertLvlToXp(currentLevel + 1);
 		let diffLevelXp = nextLevelXp - currentLevelXp;
 		let currentLevelPercentage = (currentXp - currentLevelXp) / diffLevelXp * 100;
 		if (bar === true) {
-			let finalLevelPercentage = ((finalXp - currentXp) > (nextLevelXp - currentXp)) ? 100 - currentLevelPercentage : ((finalXp - currentXp)/diffLevelXp*100).toFixed(4);
+			let finalLevelPercentage = ((finalXp - currentXp) > (nextLevelXp - currentXp)) ? 100 - currentLevelPercentage : ((finalXp - currentXp) / diffLevelXp * 100).toFixed(4);
 			return finalLevelPercentage;
-		}
-		else {
+		} else {
 			return currentLevelPercentage;
 		}
 	}
 
 	//Return the chanceToKeep for any mastery EXp
-	function masteryPreservation(initial, masteryEXp, chanceToRefTable){
+	function masteryPreservation(initial, masteryEXp, chanceToRefTable) {
 		let chanceTo = chanceToRefTable;
 		if (masteryEXp >= initial.masteryLim[0]) {
 			for (let i = 0; i < initial.masteryLim.length; i++) {
-				if (initial.masteryLim[i] <= masteryEXp && masteryEXp < initial.masteryLim[i+1]) {
-					return chanceTo[i+1];
+				if (initial.masteryLim[i] <= masteryEXp && masteryEXp < initial.masteryLim[i + 1]) {
+					return chanceTo[i + 1];
 				}
 			}
-		} else {return chanceTo[0];}
+		} else {
+			return chanceTo[0];
+		}
 	}
 
 	// Adjust interval based on unlocked bonuses
@@ -502,13 +519,13 @@ function script() {
 		}
 		initial.maxXp = convertLvlToXp(initial.maxLevel);
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
-		initial.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
+		initial.masteryLimLevel = Array.from({length: 98}, (_, i) => i + 2);
 		initial.masteryLimLevel.push(Infinity);
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
-		initial.skillLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
+		initial.skillLimLevel = Array.from({length: 98}, (_, i) => i + 2);
 		initial.skillLimLevel.push(Infinity);
 		// Chance to keep at breakpoints - default 0.2% per level
-		initial.chanceToKeep = Array.from({ length: 99 }, (_, i) => i *0.002);
+		initial.chanceToKeep = Array.from({length: 99}, (_, i) => i * 0.002);
 		initial.chanceToKeep[98] += 0.05; // Level 99 Bonus
 		return initial;
 	}
@@ -579,11 +596,11 @@ function script() {
 			initial.skillInterval -= 500;
 		}
 		if (petUnlocked[9]) initial.skillInterval -= 200;
-		items[initial.item].craftReq.forEach(i=>initial.skillReq.push(i));
+		items[initial.item].craftReq.forEach(i => initial.skillReq.push(i));
 		return initial;
 	}
 
-	function configureHerblore(initial){
+	function configureHerblore(initial) {
 		initial.item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
 		initial.itemXp = herbloreItemData[selectedHerblore].herbloreXP;
 		initial.skillInterval = 2000;
@@ -627,8 +644,7 @@ function script() {
 			for (let i of ALTMAGIC[selectedAltMagic].runesRequiredAlt) {
 				initial.skillReq.push({...i});
 			}
-		}
-		else {
+		} else {
 			for (let i of ALTMAGIC[selectedAltMagic].runesRequired) {
 				initial.skillReq.push({...i});
 			}
@@ -650,13 +666,11 @@ function script() {
 		//Other items
 		if (ALTMAGIC[selectedAltMagic].selectItem === 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
 			initial.skillReq.push({id: selectedMagicItem[1], qty: 1});
-		}
-		else if (ALTMAGIC[selectedAltMagic].selectItem === -1) { // Spells that doesn't require you to select an item
+		} else if (ALTMAGIC[selectedAltMagic].selectItem === -1) { // Spells that doesn't require you to select an item
 			if (ALTMAGIC[selectedAltMagic].needCoal) { // Rags to Riches II
 				initial.skillReq.push({id: 48, qty: 1});
 			}
-		}
-		else if (selectedMagicItem[0] !== null && ALTMAGIC[selectedAltMagic].selectItem === 0) { // SUPERHEAT
+		} else if (selectedMagicItem[0] !== null && ALTMAGIC[selectedAltMagic].selectItem === 0) { // SUPERHEAT
 			for (let i of items[selectedMagicItem[0]].smithReq) {
 				initial.skillReq.push({...i});
 			}
@@ -801,8 +815,11 @@ function script() {
 
 	// Calculate pool Xp based on mastery Xp
 	function calcPoolXpToAdd(skillXp, masteryXp) {
-		if (convertXpToLvl(skillXp) >= 99) {return masteryXp / 2; }
-		else { return masteryXp / 4; }
+		if (convertXpToLvl(skillXp) >= 99) {
+			return masteryXp / 2;
+		} else {
+			return masteryXp / 4;
+		}
 	}
 
 	// Calculate burn chance based on mastery level
@@ -1107,17 +1124,17 @@ function script() {
 		let expectedTime = {
 			"timeLeft": Math.round(current.sumTotalTime),
 			"actions": current.actions,
-			"finalSkillXp" : current.skillXp,
-			"finalMasteryXp" : current.masteryXp,
-			"finalPoolPercentage" : poolXpToPercentage(current.poolXp),
-			"maxPoolTime" : current.maxPoolTime,
-			"maxMasteryTime" : current.maxMasteryTime,
-			"maxSkillTime" : current.maxSkillTime,
+			"finalSkillXp": current.skillXp,
+			"finalMasteryXp": current.masteryXp,
+			"finalPoolPercentage": poolXpToPercentage(current.poolXp),
+			"maxPoolTime": current.maxPoolTime,
+			"maxMasteryTime": current.maxMasteryTime,
+			"maxSkillTime": current.maxSkillTime,
 			"rates": rates(initial, current),
 			"tokens": current.tokens,
 		};
 		// continue calculations until time to all targets is found
-		while(!current.maxSkillReached || !current.maxMasteryReached || !current.maxPoolReached) {
+		while (!current.maxSkillReached || !current.maxMasteryReached || !current.maxPoolReached) {
 			current = actionsToBreakpoint(initial, current, true);
 		}
 		// if it is a gathering skill, then set final values to the values when reaching the final target
@@ -1282,6 +1299,7 @@ function script() {
 		}
 		return initial;
 	}
+
 	// Main function
 	function timeRemaining(initial) {
 		initial = setupTimeRemaining(initial);
@@ -1312,12 +1330,27 @@ function script() {
 		window.timeLeftCurrent = [
 			initial.skillID,
 			initial.currentAction,
-			ETASettings.DING_RESOURCES ? timeLeft : Infinity,
-			ETASettings.DING_LEVEL ? timeLeftSkill : Infinity,
-			ETASettings.DING_MASTERY ? timeLeftMastery : Infinity,
-			ETASettings.DING_POOL ? timeLeftPool : Infinity,
+			[
+				0,
+				ETASettings.DING_RESOURCES ? timeLeft : Infinity,
+				(ETASettings.DING_RESOURCES ? timeLeft : Infinity) === 0 ? 1 : 0,
+			],
+			[
+				initial.maxLevel,
+				ETASettings.DING_LEVEL ? timeLeftSkill : Infinity,
+				convertXpToLvl(initial.skillXp),
+			],
+			[
+				initial.maxMastery,
+				ETASettings.DING_MASTERY ? timeLeftMastery : Infinity,
+				convertXpToLvl(initial.masteryXp),
+			],
+			[
+				initial.targetPool,
+				ETASettings.DING_POOL ? timeLeftPool : Infinity,
+				100 * initial.poolXp / initial.maxPoolXp,
+			],
 		];
-
 		//Inject timeLeft HTML
 		let now = new Date();
 		let timeLeftElementId = `timeLeft${skillName[initial.skillID]}`;
@@ -1362,21 +1395,21 @@ function script() {
 			const wrapFirst = s => {
 				return ''
 					+ '<div class="col-6" style="white-space: nowrap;">'
-					+ '    <h3 class="font-size-base m-1" style="color:white;" >'
-					+ `        <span class="p-1" style="text-align:center; display: inline-block;line-height: normal;color:white;">`
+					+ '	<h3 class="font-size-base m-1" style="color:white;" >'
+					+ `		<span class="p-1" style="text-align:center; display: inline-block;line-height: normal;color:white;">`
 					+ s
-					+ '        </span>'
-					//+ '    </h3>'
+					+ '		</span>'
+					//+ '	</h3>'
 					+ '</div>';
 			}
 			const wrapSecond = (tag, s) => {
 				return ''
 					+ '<div class="col-6" style="white-space: nowrap;">'
-					+ '    <h3 class="font-size-base m-1" style="color:white;" >'
-					+ `        <span class="p-1 bg-${tag} rounded" style="text-align:center; display: inline-block;line-height: normal;width: 100px;color:white;">`
+					+ '	<h3 class="font-size-base m-1" style="color:white;" >'
+					+ `		<span class="p-1 bg-${tag} rounded" style="text-align:center; display: inline-block;line-height: normal;width: 100px;color:white;">`
 					+ s
-					+ '        </span>'
-					+ '    </h3>'
+					+ '		</span>'
+					+ '	</h3>'
 					+ '</div>';
 			}
 			const timeLeftToHTML = (target, time, finish, resources) => {
@@ -1398,9 +1431,9 @@ function script() {
 			const wrapTimeLeft = (s) => {
 				return ''
 					+ '<div class="row no-gutters">'
-					+ '    <span class="col-12 m-1" style="padding:0.5rem 1.25rem;min-height:2.5rem;font-size:0.875rem;line-height:1.25rem;text-align:center">'
+					+ '	<span class="col-12 m-1" style="padding:0.5rem 1.25rem;min-height:2.5rem;font-size:0.875rem;line-height:1.25rem;text-align:center">'
 					+ s
-					+ '    </span>'
+					+ '	</span>'
 					+ '</div>';
 			}
 			const wrapClose = '</div>';
@@ -1517,7 +1550,7 @@ function script() {
 			let selectName = "select" + entry;
 			// original methods are kept in the selectRef object
 			selectRef[selectName] = window[selectName];
-			window[selectName] = function(...args) {
+			window[selectName] = function (...args) {
 				selectRef[selectName](...args);
 				try {
 					timeRemainingWrapper(CONSTANTS.skill[skillName]);
@@ -1534,7 +1567,7 @@ function script() {
 		}
 		// original methods are kept in the startRef object
 		startRef[skillName] = window[startName];
-		window[startName] = function(...args) {
+		window[startName] = function (...args) {
 			startRef[skillName](...args);
 			try {
 				timeRemainingWrapper(CONSTANTS.skill[skillName]);
@@ -1557,10 +1590,11 @@ function script() {
 		let startName = skill[1];
 		// original methods are kept in the startRef object
 		startRef[startName] = window[startName];
-		window[startName] = function(...args) {
+		window[startName] = function (...args) {
 			startRef[startName](...args);
 			try {
 				timeRemainingWrapper(CONSTANTS.skill[skillName]);
+				taskComplete(CONSTANTS.skill[skillName]);
 			} catch (e) {
 				console.error(e);
 			}
@@ -1568,7 +1602,7 @@ function script() {
 	});
 
 	const changePageRef = changePage;
-	changePage = function(...args) {
+	changePage = function (...args) {
 		let skillName = undefined;
 		switch (args[0]) {
 			case 0:
@@ -1598,8 +1632,8 @@ function script() {
 	const tempContainer = (id) => {
 		return ''
 			+ '<div class="font-size-base font-w600 text-center text-muted">'
-			+ `    <small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title="">`
-			+ '    </small>'
+			+ `	<small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title="">`
+			+ '	</small>'
 			+ '</div>';
 	}
 
@@ -1611,17 +1645,21 @@ function script() {
 	$("#skill-cooking-food-selected-qty").parent().parent().parent().after(tempContainer("timeLeftCooking"));
 	$("#skill-fm-logs-selected-qty").parent().parent().parent().after(tempContainer("timeLeftFiremaking"));
 	$("#magic-item-have-and-div").after(tempContainer("timeLeftMagic"));
+
 	function makeMiningDisplay() {
 		miningData.forEach((_, i) => {
 			$(`#mining-ore-img-${i}`).before(tempContainer(`timeLeftMining-${i}`))
 		});
 	}
+
 	makeMiningDisplay();
+
 	function makeThievingDisplay() {
 		thievingNPC.forEach((_, i) => {
 			$(`#success-rate-${i}`).parent().after(tempContainer(`timeLeftThieving-${i}`))
 		});
 	}
+
 	makeThievingDisplay(); // this has to be a function because in some scenarios the thieving display disappears, so we need to remake it
 	function makeWoodcuttingDisplay() {
 		trees.forEach((_, i) => {
@@ -1629,25 +1667,28 @@ function script() {
 		});
 		$('#skill-woodcutting-multitree').parent().after(tempContainer('timeLeftWoodcutting-Secondary'))
 	}
+
 	makeWoodcuttingDisplay();
+
 	function makeFishingDisplay() {
 		fishingAreas.forEach((_, i) => {
 			$(`#fishing-area-${i}-selected-fish-xp`).after(tempContainer(`timeLeftFishing-${i}`))
 		});
 	}
+
 	makeFishingDisplay();
 
 	// Mastery Pool progress
-	for(let id in SKILLS) {
-		if(SKILLS[id].hasMastery) {
+	for (let id in SKILLS) {
+		if (SKILLS[id].hasMastery) {
 			let bar = $(`#mastery-pool-progress-${id}`)[0];
 			$(bar).after(`<div id="mastery-pool-progress-end-${id}" class="progress-bar bg-warning" role="progressbar" style="width: 0%; background-color: #e5ae679c !important;"></div>`);
 		}
 	}
 
 	// Mastery Progress bars
-	for(let id in SKILLS) {
-		if(SKILLS[id].hasMastery) {
+	for (let id in SKILLS) {
+		if (SKILLS[id].hasMastery) {
 			let name = skillName[id].toLowerCase();
 			let bar = $(`#${name}-mastery-progress`)[0];
 			$(bar).after(`<div id="${id}-mastery-pool-progress-end" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
@@ -1655,8 +1696,8 @@ function script() {
 	}
 
 	// Mastery Skill progress
-	for(let id in SKILLS) {
-		if(SKILLS[id].hasMastery) {
+	for (let id in SKILLS) {
+		if (SKILLS[id].hasMastery) {
 			let bar = $(`#skill-progress-bar-${id}`)[0];
 			$(bar).after(`<div id="skill-progress-bar-end-${id}" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
 		}
