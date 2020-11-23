@@ -137,8 +137,8 @@ function script() {
 				continue;
 			}
 			if (current[2] >= last[0]) { // current level is higher than previous target
-				notifyPlayer(skillID, "Task Done", "danger");
-				console.log('Melvor ETA: task done');
+				notifyPlayer(skillID, current[3], "danger");
+				console.log('Melvor ETA: ' + current[3]);
 				let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
 				ding.volume = 0.1;
 				ding.play();
@@ -1333,22 +1333,26 @@ function script() {
 			[
 				0,
 				ETASettings.DING_RESOURCES ? timeLeft : Infinity,
-				(ETASettings.DING_RESOURCES ? timeLeft : Infinity) === 0 ? 1 : 0,
+				ETASettings.DING_RESOURCES ? -timeLeft : -Infinity,
+				"Processing finished.",
 			],
 			[
 				initial.maxLevel,
 				ETASettings.DING_LEVEL ? timeLeftSkill : Infinity,
 				convertXpToLvl(initial.skillXp),
+				"Target level reached.",
 			],
 			[
 				initial.maxMastery,
 				ETASettings.DING_MASTERY ? timeLeftMastery : Infinity,
 				convertXpToLvl(initial.masteryXp),
+				"Target mastery reached.",
 			],
 			[
 				initial.targetPool,
 				ETASettings.DING_POOL ? timeLeftPool : Infinity,
 				100 * initial.poolXp / initial.maxPoolXp,
+				"Target pool reached.",
 			],
 		];
 		//Inject timeLeft HTML
