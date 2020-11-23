@@ -64,7 +64,25 @@ function script() {
 			// [CONSTANTS.skill.Crafting]: 25,
 		},
 		// returns the appropriate target
-		getTarget: (global, specific, defaultTarget) => {
+		getNext: (current, list) => {
+			if (list === undefined) {
+				return list
+			}
+			if (list.length !== undefined) {
+				for (let i = 0; i < list.length; i++) {
+					if (list[i] > current) {
+						return list[i];
+					}
+				}
+				return Math.max(list);
+			}
+			return list;
+		},
+		getTarget: (current, global, specific, defaultTarget) => {
+			if (current !== null) {
+				global = ETASettings.getNext(current, global);
+				specific = ETASettings.getNext(current, specific);
+			}
 			let target = defaultTarget;
 			if (Number.isInteger(global)) {
 				target = global;
@@ -77,14 +95,14 @@ function script() {
 			}
  			return Math.ceil(target);
 		},
-		getTargetLevel: (skillID) => {
-			return ETASettings.getTarget(ETASettings.GLOBAL_TARGET_LEVEL, ETASettings.TARGET_LEVEL[skillID], 99);
+		getTargetLevel: (skillID, currentLevel) => {
+			return ETASettings.getTarget(currentLevel, ETASettings.GLOBAL_TARGET_LEVEL, ETASettings.TARGET_LEVEL[skillID], 99);
 		},
-		getTargetMastery: (skillID) => {
-			return ETASettings.getTarget(ETASettings.GLOBAL_TARGET_MASTERY, ETASettings.TARGET_MASTERY[skillID], 99);
+		getTargetMastery: (skillID, currentMastery) => {
+			return ETASettings.getTarget(currentMastery, ETASettings.GLOBAL_TARGET_MASTERY, ETASettings.TARGET_MASTERY[skillID], 99);
 		},
-		getTargetPool: (skillID) => {
-			return ETASettings.getTarget(ETASettings.GLOBAL_TARGET_POOL, ETASettings.TARGET_POOL[skillID], 100);
+		getTargetPool: (skillID, currentPool) => {
+			return ETASettings.getTarget(currentPool, ETASettings.GLOBAL_TARGET_POOL, ETASettings.TARGET_POOL[skillID], 100);
 		},
 
 		/*
@@ -479,10 +497,10 @@ function script() {
 				|| skillID === CONSTANTS.skill.Thieving,
 			// Generate default values for script
 			poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
-			maxXp: convertLvlToXp(ETASettings.getTargetLevel(skillID)),
-			maxMasteryXp: convertLvlToXp(ETASettings.getTargetMastery(skillID)),
+			maxLevel: ETASettings.getTargetLevel(skillID, skillLevel[skillID]),
 			tokens: 0,
 		}
+		initial.maxXp = convertLvlToXp(initial.maxLevel);
 		//Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
 		initial.masteryLimLevel = Array.from({ length: 98 }, (_, i) => i + 2);
 		initial.masteryLimLevel.push(Infinity);
@@ -1215,15 +1233,18 @@ function script() {
 		if (!initial.isMagic) {
 			initial.poolXp = MASTERY[initial.skillID].pool;
 			initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
+			initial.targetPool = ETASettings.getTargetPool(initial.skillID, 100 * initial.poolXp / initial.maxPoolXp);
 			initial.targetPoolXp = initial.maxPoolXp;
-			if (ETASettings.getTargetPool(initial.skillID) !== 100) {
-				initial.targetPoolXp = initial.maxPoolXp / 100 * ETASettings.getTargetPool(initial.skillID);
+			if (initial.targetPool !== 100) {
+				initial.targetPoolXp = initial.maxPoolXp / 100 * initial.targetPool;
 			}
 			initial.totalMasteryLevel = getCurrentTotalMasteryLevelForSkill(initial.skillID);
 			if (!initial.isGathering) {
 				initial.masteryID = items[initial.item].masteryID[1];
 			}
 			initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
+			initial.maxMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(initial.masteryXp));
+			initial.maxMasteryXp = convertLvlToXp(initial.maxMastery);
 			initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
 		}
 
@@ -1403,7 +1424,7 @@ function script() {
 				let finishedTimeSkill = AddSecondsToDate(now, timeLeftSkill);
 				timeLeftSkillElement = wrapTimeLeft(
 					timeLeftToHTML(
-						ETASettings.getTargetLevel(initial.skillID),
+						initial.maxLevel,
 						secondsToHms(timeLeftSkill),
 						DateFormat(now, finishedTimeSkill),
 						current.maxSkillResources,
@@ -1420,7 +1441,7 @@ function script() {
 				let finishedTimeMastery = AddSecondsToDate(now, timeLeftMastery);
 				timeLeftMasteryElement = wrapTimeLeft(
 					timeLeftToHTML(
-						ETASettings.getTargetMastery(initial.skillID),
+						initial.maxMastery,
 						secondsToHms(timeLeftMastery),
 						DateFormat(now, finishedTimeMastery),
 						current.maxMasteryResources,
@@ -1441,7 +1462,7 @@ function script() {
 					+ (timeLeftPool === 0
 						? ''
 						: timeLeftToHTML(
-							`${ETASettings.getTargetPool(initial.skillID)}%`,
+							`${initial.targetPool}%`,
 							secondsToHms(timeLeftPool),
 							DateFormat(now, finishedTimePool),
 							current.maxPoolResources,
