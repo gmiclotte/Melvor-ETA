@@ -129,7 +129,6 @@ function script() {
 		}
 		// ping if any targets were reached
 		for (let i = 2; i < window.timeLeftLast.length; i++) {
-			let ding = false;
 			const last = window.timeLeftLast[i];
 			const current = window.timeLeftCurrent[i];
 			if (last[1] === 0 || current[1] === Infinity) {
@@ -218,12 +217,6 @@ function script() {
 	// Add seconds to date
 	function AddSecondsToDate(date, seconds) {
 		return new Date(date.getTime() + seconds * 1000);
-	}
-
-	// Days between now and then
-	function daysBetween(now, then) {
-		const startOfDayNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		return Math.floor((then - startOfDayNow) / 1000 / 60 / 60 / 24 + (startOfDayNow.getTimezoneOffset() - then.getTimezoneOffset()) / (60 * 24));
 	}
 
 	// Format date 24 hour clock
@@ -438,7 +431,7 @@ function script() {
 		let xpMultiplier = 1;
 		switch (initial.skillID) {
 			case CONSTANTS.skill.Runecrafting:
-				if (poolXp >= initial.poolLim[1] && items[initial.item].type === "Rune") {
+				if (poolXp >= initial.poolLim[1] && items[initial.itemID].type === "Rune") {
 					xpMultiplier += 1.5;
 				}
 				break;
@@ -491,7 +484,7 @@ function script() {
 	function initialVariables(skillID) {
 		let initial = {
 			skillID: skillID,
-			item: 0,
+			itemID: undefined,
 			itemXp: 0,
 			skillInterval: 0,
 			masteryID: 0,
@@ -537,11 +530,11 @@ function script() {
 	}
 
 	function configureSmithing(initial) {
-		initial.item = smithingItems[selectedSmith].itemID;
-		initial.itemXp = items[initial.item].smithingXP;
+		initial.itemID = smithingItems[selectedSmith].itemID;
+		initial.itemXp = items[initial.itemID].smithingXP;
 		initial.skillInterval = 2000;
 		if (godUpgrade[3]) initial.skillInterval *= 0.8;
-		for (let i of items[initial.item].smithReq) {
+		for (let i of items[initial.itemID].smithReq) {
 			initial.skillReq.push(i);
 		}
 		initial.masteryLimLevel = [20, 40, 60, 80, 99, Infinity]; // Smithing Mastery Limits
@@ -551,16 +544,16 @@ function script() {
 	}
 
 	function configureFletching(initial) {
-		initial.item = fletchingItems[selectedFletch].itemID;
-		initial.itemXp = items[initial.item].fletchingXP;
+		initial.itemID = fletchingItems[selectedFletch].itemID;
+		initial.itemXp = items[initial.itemID].fletchingXP;
 		initial.skillInterval = 2000;
 		if (godUpgrade[0]) initial.skillInterval *= 0.8;
 		if (petUnlocked[8]) initial.skillInterval -= 200;
-		for (let i of items[initial.item].fletchReq) {
+		for (let i of items[initial.itemID].fletchReq) {
 			initial.skillReq.push(i);
 		}
 		//Special Case for Arrow Shafts
-		if (initial.item === CONSTANTS.item.Arrow_Shafts) {
+		if (initial.itemID === CONSTANTS.item.Arrow_Shafts) {
 			if (selectedFletchLog === undefined) {
 				selectedFletchLog = 0;
 			}
@@ -570,11 +563,11 @@ function script() {
 	}
 
 	function configureRunecrafting(initial) {
-		initial.item = runecraftingItems[selectedRunecraft].itemID;
-		initial.itemXp = items[initial.item].runecraftingXP;
+		initial.itemID = runecraftingItems[selectedRunecraft].itemID;
+		initial.itemXp = items[initial.itemID].runecraftingXP;
 		initial.skillInterval = 2000;
 		if (godUpgrade[1]) initial.skillInterval *= 0.8;
-		for (let i of items[initial.item].runecraftReq) {
+		for (let i of items[initial.itemID].runecraftReq) {
 			initial.skillReq.push(i);
 		}
 		initial.masteryLimLevel = [99, Infinity]; // Runecrafting has no Mastery bonus
@@ -588,32 +581,32 @@ function script() {
 	}
 
 	function configureCrafting(initial) {
-		initial.item = craftingItems[selectedCraft].itemID;
-		initial.itemXp = items[initial.item].craftingXP;
+		initial.itemID = craftingItems[selectedCraft].itemID;
+		initial.itemXp = items[initial.itemID].craftingXP;
 		initial.skillInterval = 3000;
 		if (godUpgrade[0]) initial.skillInterval *= 0.8;
 		if (skillCapeEquipped(CONSTANTS.item.Crafting_Skillcape)) {
 			initial.skillInterval -= 500;
 		}
 		if (petUnlocked[9]) initial.skillInterval -= 200;
-		items[initial.item].craftReq.forEach(i => initial.skillReq.push(i));
+		items[initial.itemID].craftReq.forEach(i => initial.skillReq.push(i));
 		return initial;
 	}
 
 	function configureHerblore(initial) {
-		initial.item = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
+		initial.itemID = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
 		initial.itemXp = herbloreItemData[selectedHerblore].herbloreXP;
 		initial.skillInterval = 2000;
 		if (godUpgrade[1]) initial.skillInterval *= 0.8;
-		for (let i of items[initial.item].herbloreReq) {
+		for (let i of items[initial.itemID].herbloreReq) {
 			initial.skillReq.push(i);
 		}
 		return initial;
 	}
 
 	function configureCooking(initial) {
-		initial.item = selectedFood;
-		initial.itemXp = items[initial.item].cookingXP;
+		initial.itemID = selectedFood;
+		initial.itemXp = items[initial.itemID].cookingXP;
 		if (currentCookingFire > 0) {
 			initial.itemXp *= (1 + cookingFireData[currentCookingFire - 1].bonusXP / 100);
 		}
@@ -622,12 +615,12 @@ function script() {
 		initial.skillReq = [{id: initial.item, qty: 1}];
 		initial.masteryLimLevel = [99, Infinity]; //Cooking has no Mastery bonus
 		initial.chanceToKeep = [0, 0]; //Thus no chance to keep
-		initial.item = items[initial.item].cookedItemID;
+		initial.itemID = items[initial.itemID].cookedItemID;
 		return initial;
 	}
 
 	function configureFiremaking(initial) {
-		initial.item = selectedLog;
+		initial.itemID = selectedLog;
 		initial.itemXp = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
 		initial.skillInterval = logsData[selectedLog].interval;
 		if (godUpgrade[3]) initial.skillInterval *= 0.8;
@@ -692,8 +685,8 @@ function script() {
 	}
 
 	function configureMining(initial) {
-		initial.item = miningData[initial.currentAction].ore;
-		initial.itemXp = items[initial.item].miningXP;
+		initial.itemID = miningData[initial.currentAction].ore;
+		initial.itemXp = items[initial.itemID].miningXP;
 		initial.skillInterval = 3000;
 		if (godUpgrade[2]) initial.skillInterval *= 0.8;
 		initial.skillInterval *= 1 - pickaxeBonusSpeed[currentPickaxe] / 100;
@@ -701,8 +694,8 @@ function script() {
 	}
 
 	function configureThieving(initial) {
-		initial.item = thievingNPC[initial.currentAction];
-		initial.itemXp = initial.item.xp;
+		initial.itemID = undefined;
+		initial.itemXp = thievingNPC[initial.currentAction].xp;
 		initial.skillInterval = 3000;
 		if (skillCapeEquipped(CONSTANTS.item.Thieving_Skillcape)) {
 			initial.skillInterval -= 500;
@@ -711,9 +704,9 @@ function script() {
 	}
 
 	function configureWoodcutting(initial) {
-		initial.item = trees[initial.currentAction];
-		initial.itemXp = initial.item.xp;
-		initial.skillInterval = initial.item.interval;
+		initial.itemID = initial.currentAction;
+		initial.itemXp = trees[initial.itemID].xp;
+		initial.skillInterval = trees[initial.itemID].interval;
 		if (godUpgrade[2]) {
 			initial.skillInterval *= 0.8;
 		}
@@ -725,12 +718,12 @@ function script() {
 	}
 
 	function configureFishing(initial) {
-		initial.item = items[fishingItems[fishingAreas[initial.currentAction].fish[initial.fishID]].itemID];
-		initial.itemXp = initial.item.fishingXP;
+		initial.itemID = fishingItems[fishingAreas[initial.currentAction].fish[initial.fishID]].itemID;
+		initial.itemXp = items[initial.itemID].fishingXP;
 		// base avg interval
 		let avgRoll = 0.5;
-		const max = initial.item.maxFishingInterval;
-		const min = initial.item.minFishingInterval;
+		const max = items[initial.itemID].maxFishingInterval;
+		const min = items[initial.itemID].minFishingInterval;
 		initial.skillInterval = Math.floor(avgRoll * (max - min)) + min;
 		// handle gear and rod
 		let fishingAmuletBonus = 1;
@@ -904,7 +897,7 @@ function script() {
 	function syncSecondary(current) {
 		current.secondary.skillXp = current.skillXp;
 		current.secondary.poolXp = current.poolXp;
-		current.secondary.totalMasteryLevel = current.secondary.totalMasteryLevel;
+		current.secondary.totalMasteryLevel = current.totalMasteryLevel;
 		return current;
 	}
 
@@ -1257,7 +1250,7 @@ function script() {
 			}
 			initial.totalMasteryLevel = getCurrentTotalMasteryLevelForSkill(initial.skillID);
 			if (!initial.isGathering) {
-				initial.masteryID = items[initial.item].masteryID[1];
+				initial.masteryID = items[initial.itemID].masteryID[1];
 			}
 			initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
 			initial.maxMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(initial.masteryXp));
@@ -1383,6 +1376,14 @@ function script() {
 						+ "\r\nTime: " + secondsToHms(timeLeft)
 						+ "\r\nETA: " + DateFormat(now, finishedTime);
 				}
+			} else if (initial.itemID !== undefined && initial.secondary === undefined) {
+				const youHaveElementId = timeLeftElementId + "-YouHave";
+				$("#" + youHaveElementId).replaceWith(''
+					+ `<small id="${youHaveElementId}">`
+					+ `<span>You have: ${formatNumber(getQtyOfItem(initial.itemID))}</span>`
+					+ `<img class="skill-icon-xs mr-2" src="${items[initial.itemID].media}">`
+					+ "</small>"
+				);
 			}
 			timeLeftElement.style.display = "block";
 		}
@@ -1637,6 +1638,9 @@ function script() {
 		return ''
 			+ '<div class="font-size-base font-w600 text-center text-muted">'
 			+ `	<small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title="">`
+			+ '	</small>'
+			+ `	<small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line">`
+			+ `<div id="${id + '-YouHave'}"/>`
 			+ '	</small>'
 			+ '</div>';
 	}
