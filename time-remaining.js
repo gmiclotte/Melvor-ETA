@@ -612,7 +612,7 @@ function script() {
 		}
 		initial.skillInterval = 3000;
 		if (godUpgrade[3]) initial.skillInterval *= 0.8;
-		initial.skillReq = [{id: initial.item, qty: 1}];
+		initial.skillReq = [{id: initial.itemID, qty: 1}];
 		initial.masteryLimLevel = [99, Infinity]; //Cooking has no Mastery bonus
 		initial.chanceToKeep = [0, 0]; //Thus no chance to keep
 		initial.itemID = items[initial.itemID].cookedItemID;
@@ -624,7 +624,7 @@ function script() {
 		initial.itemXp = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
 		initial.skillInterval = logsData[selectedLog].interval;
 		if (godUpgrade[3]) initial.skillInterval *= 0.8;
-		initial.skillReq = [{id: initial.item, qty: 1}];
+		initial.skillReq = [{id: initial.itemID, qty: 1}];
 		initial.chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
 		return initial;
 	}
