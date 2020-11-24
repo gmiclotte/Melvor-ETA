@@ -1297,7 +1297,7 @@ function script() {
 	function timeRemaining(initial) {
 		initial = setupTimeRemaining(initial);
 		//Time left
-		let results = 0;
+		let results = {};
 		let rates = {};
 		let timeLeft = 0;
 		let timeLeftPool = 0;
@@ -1307,6 +1307,7 @@ function script() {
 		let current = {};
 		if (initial.isMagic) {
 			timeLeft = Math.round(initial.recordCraft * initial.skillInterval / 1000);
+			results.actions = initial.recordCraft;
 		} else {
 			results = calcExpectedTime(initial);
 			rates = results.rates;
