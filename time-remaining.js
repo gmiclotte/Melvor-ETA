@@ -263,7 +263,7 @@ ETA.timeRemainingWrapper = function (skillID, checkTaskComplete) {
                     return;
                 }
             }
-            initial.generateProgressBars = i === current;
+            initial.isMainAction = i === current;
             initial.currentAction = i;
             asyncTimeRemaining(initial);
         });
@@ -833,7 +833,7 @@ function initialVariables(skillID, checkTaskComplete) {
         skillReq: [], // Needed items for craft and their quantities
         recordCraft: Infinity, // Amount of craftable items for limiting resource
         hasMastery: skillID !== CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
-        generateProgressBars: true,
+        isMainAction: true,
         // gathering skills are treated differently, so we often check this
         isGathering: skillID === CONSTANTS.skill.Woodcutting
             || skillID === CONSTANTS.skill.Fishing
@@ -1631,7 +1631,7 @@ function timeRemaining(initial) {
     const timeLeftElement = injectHTML(initial, results, ms.resources, now);
     generateTooltips(initial, ms, results, timeLeftElement, now);
 
-    if (initial.generateProgressBars) {
+    if (initial.isMainAction) {
         // Set global variables to track completion
         let times = [];
         if (!initial.isGathering) {
@@ -1646,7 +1646,9 @@ function timeRemaining(initial) {
         if (initial.checkTaskComplete) {
             ETA.taskComplete();
         }
-        generateProgressBars(initial, results);
+        if (!initial.isGathering) {
+            generateProgressBars(initial, results);
+        }
     }
 }
 
