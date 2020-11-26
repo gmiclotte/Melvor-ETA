@@ -112,7 +112,7 @@ window.ETASettings = {
 window.ETA = {};
 
 ETA.log = function (...args) {
-    console.log("Melvor ETA:", args)
+    console.log("Melvor ETA:", ...args)
 }
 
 
@@ -477,14 +477,14 @@ function appendName(t, name, isShortClock) {
     return result + "s";
 }
 
-// Convert seconds to hours/minutes/seconds and format them
-function secondsToHms(time, isShortClock = ETASettings.IS_SHORT_CLOCK) {
-    time = Number(time);
+// Convert milliseconds to hours/minutes/seconds and format them
+function msToHms(ms, isShortClock = ETASettings.IS_SHORT_CLOCK) {
+    let seconds = Number(ms / 1000);
     // split seconds in days, hours, minutes and seconds
-    let d = Math.floor(time / 86400)
-    let h = Math.floor(time % 86400 / 3600);
-    let m = Math.floor(time % 3600 / 60);
-    let s = Math.floor(time % 60);
+    let d = Math.floor(seconds / 86400)
+    let h = Math.floor(seconds % 86400 / 3600);
+    let m = Math.floor(seconds % 3600 / 60);
+    let s = Math.floor(seconds % 60);
     // no comma in short form
     // ` and ` if hours and minutes or hours and seconds
     // `, ` if hours and minutes and seconds
@@ -522,12 +522,12 @@ function secondsToHms(time, isShortClock = ETASettings.IS_SHORT_CLOCK) {
 }
 
 // Add seconds to date
-function AddSecondsToDate(date, seconds) {
-    return new Date(date.getTime() + seconds * 1000);
+function addMSToDate(date, ms) {
+    return new Date(date.getTime() + ms);
 }
 
 // Format date 24 hour clock
-function DateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK) {
+function dateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK) {
     let format = {weekday: "short", month: "short", day: "numeric"};
     let date = then.toLocaleString(undefined, format);
     if (date === now.toLocaleString(undefined, format)) {
@@ -735,6 +735,7 @@ function poolPreservation(initial, poolXp) {
 
 // Adjust skill Xp based on unlocked bonuses
 function skillXpAdjustment(initial, poolXp, masteryXp) {
+    let itemXp = initial.itemXp;
     let xpMultiplier = 1;
     switch (initial.skillID) {
         case CONSTANTS.skill.Runecrafting:
@@ -744,17 +745,22 @@ function skillXpAdjustment(initial, poolXp, masteryXp) {
             break;
 
         case CONSTANTS.skill.Cooking: {
-            let burnChance = calcBurnChance(masteryXp);
-            let cookXp = initial.itemXp * (1 - burnChance);
-            let burnXp = 1 * burnChance;
-            return cookXp + burnXp;
+            const burnChance = calcBurnChance(masteryXp);
+            const cookXp = itemXp * (1 - burnChance);
+            const burnXp = 1 * burnChance;
+            itemXp = cookXp + burnXp;
+            break;
         }
 
         case CONSTANTS.skill.Fishing: {
-            let junkChance = calcJunkChance(initial, masteryXp, poolXp);
-            let fishXp = initial.itemXp * (1 - junkChance);
-            let junkXp = 1 * junkChance;
-            return fishXp + junkXp;
+            const junkChance = calcJunkChance(initial, masteryXp, poolXp);
+            const fishXp = itemXp * (1 - junkChance);
+            const junkXp = 1 * junkChance;
+            itemXp = (fishXp + junkXp);
+            if (equippedItems.includes(CONSTANTS.item.Pirates_Lost_Ring)) {
+                xpMultiplier += items[CONSTANTS.item.Pirates_Lost_Ring].fishingBonusXP / 100;
+            }
+            break;
         }
 
         case CONSTANTS.skill.Smithing: {
@@ -766,7 +772,7 @@ function skillXpAdjustment(initial, poolXp, masteryXp) {
             break;
         }
     }
-    return initial.itemXp * xpMultiplier;
+    return itemXp * xpMultiplier;
 }
 
 // Calculate total number of unlocked items for skill based on current skill level
@@ -806,7 +812,7 @@ function initialVariables(skillID) {
         poolLim: [], // Xp need to reach next pool checkpoint
         skillReq: [], // Needed items for craft and their quantities
         recordCraft: Infinity, // Amount of craftable items for limiting resource
-        isMagic: skillID === CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
+        hasMastery: skillID !== CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
         // gathering skills are treated differently, so we often check this
         isGathering: skillID === CONSTANTS.skill.Woodcutting
             || skillID === CONSTANTS.skill.Fishing
@@ -1188,6 +1194,17 @@ function currentVariables(initial, resources) {
         // estimated number of actions taken so far
         actions: 0,
     };
+    if (initial.secondary !== undefined) {
+        current.secondary = currentVariables(initial.secondary, initial.secondary.recordCraft);
+    }
+    // Check for Crown of Rhaelyx
+    if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && initial.hasMastery && !initial.isGathering) {
+        for (let i = 0; i < initial.masteryLimLevel.length; i++) {
+            initial.chanceToKeep[i] += 0.10; // Add base 10% chance
+        }
+        let rhaelyxCharge = getQtyOfItem(CONSTANTS.item.Charge_Stone_of_Rhaelyx);
+        current.chargeUses = rhaelyxCharge * 1000; // average crafts per Rhaelyx Charge Stone
+    }
     return current;
 }
 
@@ -1354,7 +1371,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     return current;
 }
 
-function currentRates(initial) {
+function currentXpRates(initial) {
     let rates = {};
     const initialInterval = intervalAdjustment(initial, initial.poolXp, initial.masteryXp);
     const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
@@ -1369,14 +1386,14 @@ function currentRates(initial) {
     return rates;
 }
 
-function rates(initial, current) {
+function getXpRates(initial, current) {
     // compute exp rates, either current or average until resources run out
     let rates = {};
     if (ETASettings.CURRENT_RATES || initial.isGathering || initial.recordCraft === 0) {
         // compute current rates
-        rates = currentRates(initial);
+        rates = currentXpRates(initial);
         if (initial.secondary !== undefined) {
-            const secondaryRates = currentRates(initial.secondary);
+            const secondaryRates = currentXpRates(initial.secondary);
             Object.getOwnPropertyNames(rates).forEach(x => {
                 rates[x] += secondaryRates[x];
             });
@@ -1401,17 +1418,7 @@ function rates(initial, current) {
 function calcExpectedTime(initial) {
     // initialize the expected time variables
     let current = currentVariables(initial, initial.recordCraft);
-    if (initial.secondary !== undefined) {
-        current.secondary = currentVariables(initial.secondary, initial.secondary.recordCraft);
-    }
-    // Check for Crown of Rhaelyx
-    if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && !initial.isMagic) {
-        for (let i = 0; i < initial.masteryLimLevel.length; i++) {
-            initial.chanceToKeep[i] += 0.10; // Add base 10% chance
-        }
-        let rhaelyxCharge = getQtyOfItem(CONSTANTS.item.Charge_Stone_of_Rhaelyx);
-        current.chargeUses = rhaelyxCharge * 1000; // average crafts per Rhaelyx Charge Stone
-    }
+
     // loop until out of resources
     while (current.resources > 0) {
         current = actionsToBreakpoint(initial, current);
@@ -1430,7 +1437,7 @@ function calcExpectedTime(initial) {
         "maxPoolTime": current.maxPoolTime,
         "maxMasteryTime": current.maxMasteryTime,
         "maxSkillTime": current.maxSkillTime,
-        "rates": rates(initial, current),
+        "rates": getXpRates(initial, current),
         "tokens": current.tokens,
     };
     // continue calculations until time to all targets is found
@@ -1494,7 +1501,7 @@ function setupTimeRemaining(initial) {
             break;
     }
     // Configure initial mastery values for all skills with masteries
-    if (!initial.isMagic) {
+    if (initial.hasMastery) {
         initial.poolXp = MASTERY[initial.skillID].pool;
         initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
         initial.targetPool = ETASettings.getTargetPool(initial.skillID, 100 * initial.poolXp / initial.maxPoolXp);
@@ -1512,7 +1519,7 @@ function setupTimeRemaining(initial) {
         initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
     }
 
-    if (!initial.isMagic && !initial.isGathering) {
+    if (initial.hasMastery && !initial.isGathering) {
         initial.currentAction = initial.item;
     }
 
@@ -1552,39 +1559,46 @@ function timeRemaining(initial) {
     initial = setupTimeRemaining(initial);
     //Time left
     let results = {};
-    let rates = {};
-    let timeLeft = 0;
-    let timeLeftPool = 0;
-    let timeLeftMastery = 0;
-    let timeLeftSkill = 0;
-    let tokens = 0;
-    let current = {};
-    if (initial.isMagic) {
-        timeLeft = Math.round(initial.recordCraft * initial.skillInterval / 1000);
+    let ms = {
+        resources: 0,
+        skill: 0,
+        mastery: 0,
+        pool: 0,
+    };
+    results.current = {};
+    if (!initial.hasMastery) {
+        ms.resources = Math.round(initial.recordCraft * initial.skillInterval);
         results.actions = initial.recordCraft;
     } else {
         results = calcExpectedTime(initial);
-        rates = results.rates;
-        timeLeft = Math.round(results.timeLeft / 1000);
-        timeLeftPool = Math.round(results.maxPoolTime / 1000);
-        timeLeftMastery = Math.round(results.maxMasteryTime / 1000);
-        timeLeftSkill = Math.round(results.maxSkillTime / 1000);
-        tokens = Math.round(results.tokens);
-        current = results.current;
+        ms.resources = Math.round(results.timeLeft);
+        ms.skill = Math.round(results.maxSkillTime);
+        ms.mastery = Math.round(results.maxMasteryTime);
+        ms.pool = Math.round(results.maxPoolTime);
     }
 
     // Set global variables to track completion
     let times = [];
-    times.concat(ETA.time(ETASettings.DING_RESOURCES, 0, timeLeft, -timeLeft, "Processing finished."));
-    times.concat(ETA.time(ETASettings.DING_LEVEL, initial.maxLevel, timeLeftSkill, convertXpToLvl(initial.skillXp), "Target level reached."));
-    if (!initial.isMagic) {
-        times.concat(ETA.time(ETASettings.DING_MASTERY, initial.maxMastery, timeLeftMastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
+    if (!initial.isGathering) {
+        times.push(ETA.time(ETASettings.DING_RESOURCES, 0, ms.resources, -ms.resources, "Processing finished."));
     }
-    times.concat(ETA.time(ETASettings.DING_POOL, initial.targetPool, timeLeftPool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
+    times.push(ETA.time(ETASettings.DING_LEVEL, initial.maxLevel, ms.skill, convertXpToLvl(initial.skillXp), "Target level reached."));
+    if (initial.hasMastery) {
+        times.push(ETA.time(ETASettings.DING_MASTERY, initial.maxMastery, ms.mastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
+        times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, ms.pool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
+    }
     ETA.setTimeLeft(initial, times);
 
     //Inject timeLeft HTML
-    let now = new Date();
+    const now = new Date();
+    const timeLeftElement = injectHTML(initial, results, ms.resources, now);
+    if (initial.hasMastery) {
+        generateTooltips(initial, ms, results, timeLeftElement, now);
+    }
+    generateProgressBars(initial, results);
+}
+
+function injectHTML(initial, results, msLeft, now) {
     let timeLeftElementId = `timeLeft${skillName[initial.skillID]}`;
     if (initial.secondary !== undefined) {
         timeLeftElementId += "-Secondary";
@@ -1594,24 +1608,25 @@ function timeRemaining(initial) {
     if (initial.skillID === CONSTANTS.skill.Thieving && document.getElementById(timeLeftElementId) === null) {
         ETA.makeThievingDisplay();
     }
-    let timeLeftElement = document.getElementById(timeLeftElementId);
+    const timeLeftElement = document.getElementById(timeLeftElementId);
     if (timeLeftElement !== null) {
-        let finishedTime = AddSecondsToDate(now, timeLeft);
+        let finishedTime = addMSToDate(now, msLeft);
         timeLeftElement.textContent = "";
-        if (ETASettings.SHOW_XP_RATE && !initial.isMagic) {
-            timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(rates.xpH))
-                + "\r\nMXp/h: " + formatNumber(Math.floor(rates.masteryXpH))
-                + `\r\nPool/h: ${rates.poolH.toFixed(2)}%`
+        if (ETASettings.SHOW_XP_RATE && initial.hasMastery) {
+            timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.rates.xpH))
+                + "\r\nMXp/h: " + formatNumber(Math.floor(results.rates.masteryXpH))
+                + `\r\nPool/h: ${results.rates.poolH.toFixed(2)}%`
         }
         if (!initial.isGathering) {
-            if (timeLeft === 0) {
+            if (msLeft === 0) {
                 timeLeftElement.textContent += "\r\nNo resources!";
             } else {
                 timeLeftElement.textContent += "\r\nActions: " + formatNumber(results.actions)
-                    + "\r\nTime: " + secondsToHms(timeLeft)
-                    + "\r\nETA: " + DateFormat(now, finishedTime);
+                    + "\r\nTime: " + msToHms(msLeft)
+                    + "\r\nETA: " + dateFormat(now, finishedTime);
             }
-        } else if (initial.itemID !== undefined && initial.secondary === undefined) {
+        }
+        if ((initial.isGathering || initial.skillID === CONSTANTS.skill.Cooking) && initial.itemID !== undefined && initial.secondary === undefined) {
             const youHaveElementId = timeLeftElementId + "-YouHave";
             $("#" + youHaveElementId).replaceWith(''
                 + `<small id="${youHaveElementId}">`
@@ -1622,146 +1637,138 @@ function timeRemaining(initial) {
         }
         timeLeftElement.style.display = "block";
     }
-    if (!initial.isMagic) {
-        // Generate progression Tooltips
-        if (!timeLeftElement._tippy) {
-            tippy(timeLeftElement, {
-                allowHTML: true,
-                interactive: false,
-                animation: false,
-            });
-        }
-        const wrapOpen = '<div class="row no-gutters">';
-        const wrapFirst = s => {
-            return ''
-                + '<div class="col-6" style="white-space: nowrap;">'
-                + '	<h3 class="font-size-base m-1" style="color:white;" >'
-                + `		<span class="p-1" style="text-align:center; display: inline-block;line-height: normal;color:white;">`
-                + s
-                + '		</span>'
-                //+ '	</h3>'
-                + '</div>';
-        }
-        const wrapSecond = (tag, s) => {
-            return ''
-                + '<div class="col-6" style="white-space: nowrap;">'
-                + '	<h3 class="font-size-base m-1" style="color:white;" >'
-                + `		<span class="p-1 bg-${tag} rounded" style="text-align:center; display: inline-block;line-height: normal;width: 100px;color:white;">`
-                + s
-                + '		</span>'
-                + '	</h3>'
-                + '</div>';
-        }
-        const timeLeftToHTML = (target, time, finish, resources) => {
-            return ''
-                + `Time to ${target}: ${time}`
-                + '<br>'
-                + `ETA: ${finish}`
-                + resourcesLeftToHTML(resources);
-        }
-        const resourcesLeftToHTML = (resources) => {
-            if (ETASettings.HIDE_REQUIRED || initial.isGathering || resources === 0) {
-                return '';
-            }
-            let req = initial.skillReq.map(x =>
-                `<span>${formatNumber(x.qty * resources)}</span><img class="skill-icon-xs mr-2" src="${items[x.id].media}">`
-            ).join('');
-            return `<br/>Requires: ${req}`;
-        }
-        const wrapTimeLeft = (s) => {
-            return ''
-                + '<div class="row no-gutters">'
-                + '	<span class="col-12 m-1" style="padding:0.5rem 1.25rem;min-height:2.5rem;font-size:0.875rem;line-height:1.25rem;text-align:center">'
-                + s
-                + '	</span>'
-                + '</div>';
-        }
-        const wrapClose = '</div>';
-        const formatLevel = (level, progress) => {
-            if (!ETASettings.SHOW_PARTIAL_LEVELS) {
-                return level;
-            }
-            progress = Math.floor(progress);
-            if (progress !== 0) {
-                level = (level + progress / 100).toFixed(2);
-            }
-            return level;
-        }
-        // final level and time to target level
-        let finalLevel = convertXpToLvl(results.finalSkillXp, true)
-        let levelProgress = getPercentageInLevel(results.finalSkillXp, results.finalSkillXp, "skill");
-        finalLevel = formatLevel(finalLevel, levelProgress);
-        let finalSkillLevelElement = wrapOpen + wrapFirst('Final Level') + wrapSecond('success', finalLevel + ' / 99') + wrapClose;
-        let timeLeftSkillElement = '';
-        if (timeLeftSkill > 0) {
-            let finishedTimeSkill = AddSecondsToDate(now, timeLeftSkill);
-            timeLeftSkillElement = wrapTimeLeft(
-                timeLeftToHTML(
-                    initial.maxLevel,
-                    secondsToHms(timeLeftSkill),
-                    DateFormat(now, finishedTimeSkill),
-                    current.maxSkillResources,
-                ),
-            );
-        }
-        // final mastery and time to target mastery
-        let finalMastery = convertXpToLvl(results.finalMasteryXp);
-        let masteryProgress = getPercentageInLevel(results.finalMasteryXp, results.finalMasteryXp, "mastery");
-        finalMastery = formatLevel(finalMastery, masteryProgress);
-        let finalMasteryLevelElement = wrapOpen + wrapFirst('Final Mastery') + wrapSecond('info', finalMastery + ' / 99') + wrapClose;
-        let timeLeftMasteryElement = '';
-        if (timeLeftMastery > 0) {
-            let finishedTimeMastery = AddSecondsToDate(now, timeLeftMastery);
-            timeLeftMasteryElement = wrapTimeLeft(
-                timeLeftToHTML(
-                    initial.maxMastery,
-                    secondsToHms(timeLeftMastery),
-                    DateFormat(now, finishedTimeMastery),
-                    current.maxMasteryResources,
-                ),
-            );
-        }
-        // final pool and time to target pool
-        const finalPoolPercentageElement = wrapOpen + wrapFirst('Final Pool XP') + wrapSecond('warning', results.finalPoolPercentage + '%') + wrapClose;
-        let timeLeftPoolElement = '';
-        if (tokens > 0 || timeLeftPool > 0) {
-            let finishedTimePool = AddSecondsToDate(now, timeLeftPool);
-            timeLeftPoolElement = wrapTimeLeft(
-                (tokens === 0
-                        ? ''
-                        : `Final token count: ${tokens}`
-                )
-                + (tokens === 0 || timeLeftPool === 0 ? '' : '<br>')
-                + (timeLeftPool === 0
-                    ? ''
-                    : timeLeftToHTML(
-                        `${initial.targetPool}%`,
-                        secondsToHms(timeLeftPool),
-                        DateFormat(now, finishedTimePool),
-                        current.maxPoolResources,
-                    )
-                ),
-            );
-        }
-        let tooltip = ''
-            + '<div>'
-            + finalSkillLevelElement + timeLeftSkillElement
-            + (initial.secondary === undefined
-                ? (finalMasteryLevelElement + timeLeftMasteryElement)
-                : '') // don't show mastery target when combining multiple actions
-            + finalPoolPercentageElement + timeLeftPoolElement
-            + '</div>';
-        timeLeftElement._tippy.setContent(tooltip);
+    return timeLeftElement;
+}
 
-        {
-            let poolProgress = (results.finalPoolPercentage > 100) ?
-                100 - ((initial.poolXp / initial.maxPoolXp) * 100) :
-                (results.finalPoolPercentage - ((initial.poolXp / initial.maxPoolXp) * 100)).toFixed(4);
-            $(`#mastery-pool-progress-end-${initial.skillID}`).css("width", poolProgress + "%");
-            let masteryProgress = getPercentageInLevel(initial.masteryXp, results.finalMasteryXp, "mastery", true);
-            $(`#${initial.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
-            let skillProgress = getPercentageInLevel(initial.skillXp, results.finalSkillXp, "skill", true);
-            $(`#skill-progress-bar-end-${initial.skillID}`).css("width", skillProgress + "%");
+function generateTooltips(initial, ms, results, timeLeftElement, now) {
+    // Generate progression Tooltips
+    if (!timeLeftElement._tippy) {
+        tippy(timeLeftElement, {
+            allowHTML: true,
+            interactive: false,
+            animation: false,
+        });
+    }
+    // level tooltip
+    const finalLevel = convertXpToLvl(results.finalSkillXp, true)
+    const levelProgress = getPercentageInLevel(results.finalSkillXp, results.finalSkillXp, "skill");
+    let tooltip = finalLevelElement(
+        'Final Level',
+        formatLevel(finalLevel, levelProgress) + ' / 99',
+        'success',
+    ) + tooltipSection(initial, now, ms.skill, initial.maxLevel, results.current.maxSkillResources);
+    // mastery tooltip
+    if (initial.hasMastery && initial.secondary === undefined) {
+        // don't show mastery target when combining multiple actions
+        const finalMastery = convertXpToLvl(results.finalMasteryXp);
+        const masteryProgress = getPercentageInLevel(results.finalMasteryXp, results.finalMasteryXp, "mastery");
+        tooltip += finalLevelElement(
+            'Final Mastery',
+            formatLevel(finalMastery, masteryProgress) + ' / 99',
+            'info',
+        ) + tooltipSection(initial, now, ms.mastery, initial.maxMastery, results.current.maxMasteryResources);
+    }
+    // pool tooltip
+    if (initial.hasMastery) {
+        tooltip += finalLevelElement(
+            'Final Pool XP',
+            results.finalPoolPercentage + '%',
+            'warning',
+        )
+        let prepend = ''
+        const tokens = Math.round(results.tokens);
+        if (tokens > 0) {
+            prepend += `Final token count: ${tokens}`;
+            if (ms.pool > 0) {
+                prepend += '<br>';
+            }
         }
+        tooltip += tooltipSection(initial, now, ms.pool, `${initial.targetPool}%`, results.current.maxPoolResources, prepend);
+    }
+    // wrap and return
+    timeLeftElement._tippy.setContent(`<div>${tooltip}</div>`);
+}
+
+function tooltipSection(initial, now, ms, target, resources, prepend = '') {
+    // final level and time to target level
+    if (ms > 0) {
+        return wrapTimeLeft(
+            prepend + timeLeftToHTML(
+            initial,
+            target,
+            msToHms(ms),
+            dateFormat(now, addMSToDate(now, ms)),
+            resources,
+            ),
+        );
+    }
+    return '';
+}
+
+function finalLevelElement(finalName, finalTarget, label) {
+    return ''
+        + '<div class="row no-gutters">'
+        + '  <div class="col-6" style="white-space: nowrap;">'
+        + '    <h3 class="font-size-base m-1" style="color:white;" >'
+        + `      <span class="p-1" style="text-align:center; display: inline-block;line-height: normal;color:white;">`
+        + finalName
+        + '      </span>'
+        + '    </h3>'
+        + '  </div>'
+        + '  <div class="col-6" style="white-space: nowrap;">'
+        + '    <h3 class="font-size-base m-1" style="color:white;" >'
+        + `      <span class="p-1 bg-${label} rounded" style="text-align:center; display: inline-block;line-height: normal;width: 100px;color:white;">`
+        + finalTarget
+        + '      </span>'
+        + '    </h3>'
+        + '  </div>'
+        + '</div>';
+}
+
+const timeLeftToHTML = (initial, target, time, finish, resources) => `Time to ${target}: ${time}<br>ETA: ${finish}` + resourcesLeftToHTML(initial, resources);
+
+const resourcesLeftToHTML = (initial, resources) => {
+    if (ETASettings.HIDE_REQUIRED || initial.isGathering || resources === 0) {
+        return '';
+    }
+    let req = initial.skillReq.map(x =>
+        `<span>${formatNumber(x.qty * resources)}</span><img class="skill-icon-xs mr-2" src="${items[x.id].media}">`
+    ).join('');
+    return `<br/>Requires: ${req}`;
+}
+
+const wrapTimeLeft = (s) => {
+    return ''
+        + '<div class="row no-gutters">'
+        + '	<span class="col-12 m-1" style="padding:0.5rem 1.25rem;min-height:2.5rem;font-size:0.875rem;line-height:1.25rem;text-align:center">'
+        + s
+        + '	</span>'
+        + '</div>';
+}
+
+const formatLevel = (level, progress) => {
+    if (!ETASettings.SHOW_PARTIAL_LEVELS) {
+        return level;
+    }
+    progress = Math.floor(progress);
+    if (progress !== 0) {
+        level = (level + progress / 100).toFixed(2);
+    }
+    return level;
+}
+
+function generateProgressBars(initial, results) {
+    // skill
+    const skillProgress = getPercentageInLevel(initial.skillXp, results.finalSkillXp, "skill", true);
+    $(`#skill-progress-bar-end-${initial.skillID}`).css("width", skillProgress + "%");
+    // mastery
+    if (initial.hasMastery) {
+        const masteryProgress = getPercentageInLevel(initial.masteryXp, results.finalMasteryXp, "mastery", true);
+        $(`#${initial.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
+        // pool
+        const poolProgress = (results.finalPoolPercentage > 100) ?
+            100 - ((initial.poolXp / initial.maxPoolXp) * 100) :
+            (results.finalPoolPercentage - ((initial.poolXp / initial.maxPoolXp) * 100)).toFixed(4);
+        $(`#mastery-pool-progress-end-${initial.skillID}`).css("width", poolProgress + "%");
     }
 }
