@@ -752,9 +752,6 @@ function poolPreservation(initial, poolXp) {
 
 // Adjust skill Xp based on unlocked bonuses
 function skillXpAdjustment(initial, poolXp, masteryXp) {
-    if (initial.hasMastery) {
-        return initial.itemXp;
-    }
     let itemXp = initial.itemXp;
     let xpMultiplier = 1;
     switch (initial.skillID) {
