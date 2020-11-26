@@ -120,33 +120,35 @@ ETA.log = function (...args) {
 //ding//
 ////////
 // Function to check if task is complete
-ETA.taskComplete = function (skillID) {
-    if (ETA.timeLeftLast === undefined) {
+ETA.taskComplete = function () {
+    const last = ETA.timeLeftLast;
+    const current = ETA.timeLeftCurrent;
+    if (last === undefined) {
         return;
     }
-    if (ETA.timeLeftLast.skillID !== ETA.timeLeftCurrent.skillID || ETA.timeLeftLast.skillID !== skillID) {
+    if (last.skillID !== current.skillID) {
         // started a different skill, don't ding
         return;
     }
-    if (ETA.timeLeftLast.action !== ETA.timeLeftCurrent.action) {
+    if (last.action !== current.action) {
         // started a different action, don't ding
         return;
     }
-    if (ETA.timeLeftLast.times.length !== ETA.timeLeftCurrent.times.length) {
+    if (last.times.length !== current.times.length) {
         // ding settings were changed, don't ding
         return;
     }
-    // ping if any targets were reached
-    for (let i = 0; i < ETA.timeLeftLast.times.length; i++) {
-        const last = ETA.timeLeftLast.times[i];
-        const current = ETA.timeLeftCurrent.times[i];
-        if (last.current >= last.target) {
+    // ding if any targets were reached
+    for (let i = 0; i < last.times.length; i++) {
+        const lastTime = last.times[i];
+        const currentTime = current.times[i];
+        if (lastTime.current >= lastTime.target) {
             // target already reached
             continue;
         }
-        if (current.current >= last.target) { // current level is higher than previous target
-            notifyPlayer(skillID, current.msg, "danger");
-            ETA.log(current.msg);
+        if (currentTime.current >= lastTime.target) { // current level is higher than previous target
+            notifyPlayer(last.skillID, currentTime.msg, "danger");
+            ETA.log(currentTime.msg);
             let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
             ding.volume = 0.1;
             ding.play();
@@ -154,9 +156,11 @@ ETA.taskComplete = function (skillID) {
         }
     }
 }
+
 ETA.time = (ding, target, time, current, msg) => {
     return {ding: ding, target: target, current: current, msg: msg};
 };
+
 ETA.setTimeLeft = function (initial, times) {
     // save previous
     ETA.timeLeftLast = ETA.timeLeftCurrent;
@@ -225,57 +229,73 @@ ETA.makeFishingDisplay = function () {
 //main wrapper//
 ////////////////
 
-ETA.timeRemainingWrapper = function (skillID) {
+ETA.timeRemainingWrapper = function (skillID, checkTaskComplete) {
     // populate the main `time remaining` variables
-    let initial = initialVariables(skillID);
-    if (initial.isGathering) {
-        let data = [];
-        switch (initial.skillID) {
-            case CONSTANTS.skill.Mining:
-                data = miningData;
-                break;
+    let data = [];
+    let current;
+    switch (skillID) {
+        case CONSTANTS.skill.Mining:
+            data = miningData;
+            current = currentRock;
+            break;
 
-            case CONSTANTS.skill.Thieving:
-                data = thievingNPC;
-                break;
+        case CONSTANTS.skill.Thieving:
+            data = thievingNPC;
+            current = npcID;
+            break;
 
-            case CONSTANTS.skill.Woodcutting:
-                data = trees;
-                break;
+        case CONSTANTS.skill.Woodcutting:
+            data = trees;
+            current = -1; // never progress bar or ding for single tree
+            break;
 
-            case CONSTANTS.skill.Fishing:
-                data = fishingAreas;
-                break;
-        }
+        case CONSTANTS.skill.Fishing:
+            data = fishingAreas;
+            current = currentFishingArea;
+            break;
+    }
+    if (data.length > 0) {
         data.forEach((_, i) => {
+            let initial = initialVariables(skillID, checkTaskComplete);
             if (initial.skillID === CONSTANTS.skill.Fishing) {
                 initial.fishID = selectedFish[i];
                 if (initial.fishID === null) {
                     return;
                 }
             }
+            initial.generateProgressBars = i === current;
             initial.currentAction = i;
-            timeRemaining(initial)
+            asyncTimeRemaining(initial);
         });
         if (skillID === CONSTANTS.skill.Woodcutting) {
             if (currentlyCutting === 2) {
                 // init first tree
-                initial = initialVariables(skillID);
+                let initial = initialVariables(skillID, checkTaskComplete);
                 initial.currentAction = currentTrees[0];
                 // configure secondary tree
-                initial.secondary = initialVariables(skillID);
+                initial.secondary = initialVariables(skillID, checkTaskComplete);
                 initial.secondary.currentAction = currentTrees[1];
                 initial.secondary = setupTimeRemaining(initial.secondary);
                 // run time remaining
-                timeRemaining(initial);
+                asyncTimeRemaining(initial);
             } else {
                 // wipe the display, there's no way of knowing which tree is being cut
-                document.getElementById(`timeLeft${skillName[initial.skillID]}-Secondary`).textContent = '';
+                document.getElementById(`timeLeft${skillName[skillID]}-Secondary`).textContent = '';
             }
         }
     } else {
-        timeRemaining(initial);
+        let initial = initialVariables(skillID, checkTaskComplete);
+        asyncTimeRemaining(initial);
     }
+}
+
+function asyncTimeRemaining(initial) {
+    setTimeout(
+        function () {
+            timeRemaining(initial);
+        },
+        0,
+    );
 }
 
 /////////////
@@ -283,7 +303,7 @@ ETA.timeRemainingWrapper = function (skillID) {
 /////////////
 function script() {
     // Loading script
-    ETA.log('Melvor ETA Loaded');
+    ETA.log('loading...');
 
     // select and start craft overrides
     ETA.selectRef = {};
@@ -312,7 +332,7 @@ function script() {
             window[selectName] = function (...args) {
                 ETA.selectRef[selectName](...args);
                 try {
-                    ETA.timeRemainingWrapper(CONSTANTS.skill[skillName]);
+                    ETA.timeRemainingWrapper(CONSTANTS.skill[skillName], false);
                 } catch (e) {
                     console.error(e);
                 }
@@ -329,8 +349,7 @@ function script() {
         window[startName] = function (...args) {
             ETA.startRef[skillName](...args);
             try {
-                ETA.timeRemainingWrapper(CONSTANTS.skill[skillName]);
-                ETA.taskComplete(CONSTANTS.skill[skillName]);
+                ETA.timeRemainingWrapper(CONSTANTS.skill[skillName], true);
             } catch (e) {
                 console.error(e);
             }
@@ -352,8 +371,7 @@ function script() {
         window[startName] = function (...args) {
             ETA.startRef[startName](...args);
             try {
-                ETA.timeRemainingWrapper(CONSTANTS.skill[skillName]);
-                ETA.taskComplete(CONSTANTS.skill[skillName]);
+                ETA.timeRemainingWrapper(CONSTANTS.skill[skillName], true);
             } catch (e) {
                 console.error(e);
             }
@@ -379,7 +397,7 @@ function script() {
         }
         if (skillName !== undefined) {
             try {
-                ETA.timeRemainingWrapper(CONSTANTS.skill[skillName]);
+                ETA.timeRemainingWrapper(CONSTANTS.skill[skillName], false);
             } catch (e) {
                 console.error(e);
             }
@@ -418,6 +436,8 @@ function script() {
             $(bar).after(`<div id="skill-progress-bar-end-${id}" class="progress-bar bg-info" role="progressbar" style="width: 0%; background-color: #5cace59c !important;"></div>`);
         }
     }
+    //
+    ETA.log('loaded!');
 }
 
 // inject the script
@@ -802,9 +822,10 @@ function actionsPerToken(skillID, skillXp) {
     return actions;
 }
 
-function initialVariables(skillID) {
+function initialVariables(skillID, checkTaskComplete) {
     let initial = {
         skillID: skillID,
+        checkTaskComplete: checkTaskComplete,
         itemID: undefined,
         itemXp: 0,
         skillInterval: 0,
@@ -812,6 +833,7 @@ function initialVariables(skillID) {
         skillReq: [], // Needed items for craft and their quantities
         recordCraft: Infinity, // Amount of craftable items for limiting resource
         hasMastery: skillID !== CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
+        generateProgressBars: true,
         // gathering skills are treated differently, so we often check this
         isGathering: skillID === CONSTANTS.skill.Woodcutting
             || skillID === CONSTANTS.skill.Fishing
@@ -1604,24 +1626,28 @@ function timeRemaining(initial) {
         mastery: Math.round(results.targetMasteryTime),
         pool: Math.round(results.targetPoolTime),
     };
-
-    // Set global variables to track completion
-    let times = [];
-    if (!initial.isGathering) {
-        times.push(ETA.time(ETASettings.DING_RESOURCES, 0, ms.resources, -ms.resources, "Processing finished."));
-    }
-    times.push(ETA.time(ETASettings.DING_LEVEL, initial.targetLevel, ms.skill, convertXpToLvl(initial.skillXp), "Target level reached."));
-    if (initial.hasMastery) {
-        times.push(ETA.time(ETASettings.DING_MASTERY, initial.targetMastery, ms.mastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
-        times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, ms.pool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
-    }
-    ETA.setTimeLeft(initial, times);
-
     //Inject timeLeft HTML
     const now = new Date();
     const timeLeftElement = injectHTML(initial, results, ms.resources, now);
     generateTooltips(initial, ms, results, timeLeftElement, now);
-    generateProgressBars(initial, results);
+
+    if (initial.generateProgressBars) {
+        // Set global variables to track completion
+        let times = [];
+        if (!initial.isGathering) {
+            times.push(ETA.time(ETASettings.DING_RESOURCES, 0, ms.resources, -ms.resources, "Processing finished."));
+        }
+        times.push(ETA.time(ETASettings.DING_LEVEL, initial.targetLevel, ms.skill, convertXpToLvl(initial.skillXp), "Target level reached."));
+        if (initial.hasMastery) {
+            times.push(ETA.time(ETASettings.DING_MASTERY, initial.targetMastery, ms.mastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
+            times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, ms.pool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
+        }
+        ETA.setTimeLeft(initial, times);
+        if (initial.checkTaskComplete) {
+            ETA.taskComplete();
+        }
+        generateProgressBars(initial, results);
+    }
 }
 
 function injectHTML(initial, results, msLeft, now) {
