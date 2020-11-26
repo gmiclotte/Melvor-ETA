@@ -553,7 +553,12 @@ function dateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK) {
 }
 
 // Level to Xp Array
-const lvlToXp = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
+function lvlToXp(level) {
+    if (ETA.lvlToXpCache === undefined) {
+        ETA.lvlToXpCache = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
+    }
+    return ETA.lvlToXpCache[level];
+}
 
 // Convert level to Xp needed to reach that level
 function convertLvlToXp(level) {
@@ -564,14 +569,14 @@ function convertLvlToXp(level) {
     if (level === 1) {
         return xp;
     }
-    xp = lvlToXp[level] + 1;
+    xp = lvlToXp(level) + 1;
     return xp;
 }
 
 // Convert Xp value to level
 function convertXpToLvl(xp, noCap = false) {
     let level = 1;
-    while (lvlToXp[level] < xp) {
+    while (lvlToXp(level) < xp) {
         level++;
     }
     level--;
@@ -606,6 +611,9 @@ function getPercentageInLevel(currentXp, finalXp, type, bar = false) {
 
 //Return the chanceToKeep for any mastery EXp
 function masteryPreservation(initial, masteryEXp, chanceToRefTable) {
+    if (!initial.hasMastery) {
+        return 0;
+    }
     let chanceTo = chanceToRefTable;
     if (masteryEXp >= initial.masteryLim[0]) {
         for (let i = 0; i < initial.masteryLim.length; i++) {
@@ -620,6 +628,9 @@ function masteryPreservation(initial, masteryEXp, chanceToRefTable) {
 
 // Adjust interval based on unlocked bonuses
 function intervalAdjustment(initial, poolXp, masteryXp) {
+    if (!initial.hasMastery) {
+        return initial.skillInterval;
+    }
     let adjustedInterval = initial.skillInterval;
     switch (initial.skillID) {
         case CONSTANTS.skill.Firemaking:
@@ -653,6 +664,9 @@ function intervalAdjustment(initial, poolXp, masteryXp) {
 
 // Adjust interval based on unlocked bonuses
 function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) {
+    if (!initial.hasMastery) {
+        return currentInterval;
+    }
     let adjustedInterval = currentInterval;
     switch (initial.skillID) {
         case CONSTANTS.skill.Mining:
@@ -711,6 +725,9 @@ function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) 
 
 // Adjust preservation chance based on unlocked bonuses
 function poolPreservation(initial, poolXp) {
+    if (!initial.hasMastery) {
+        return 0;
+    }
     let preservation = 0;
     switch (initial.skillID) {
         case CONSTANTS.skill.Smithing:
@@ -735,6 +752,9 @@ function poolPreservation(initial, poolXp) {
 
 // Adjust skill Xp based on unlocked bonuses
 function skillXpAdjustment(initial, poolXp, masteryXp) {
+    if (initial.hasMastery) {
+        return initial.itemXp;
+    }
     let itemXp = initial.itemXp;
     let xpMultiplier = 1;
     switch (initial.skillID) {
@@ -801,15 +821,6 @@ function initialVariables(skillID) {
         itemXp: 0,
         skillInterval: 0,
         masteryID: 0,
-        skillXp: skillXP[skillID], // Current skill Xp
-        masteryXp: 0, // Current amount of Mastery experience
-        totalMasteryLevel: 0,
-        poolXp: 0,
-        maxPoolXp: 0,
-        targetPoolXp: 0,
-        masteryLim: [], // Xp needed to reach next level
-        skillLim: [], // Xp needed to reach next level
-        poolLim: [], // Xp need to reach next pool checkpoint
         skillReq: [], // Needed items for craft and their quantities
         recordCraft: Infinity, // Amount of craftable items for limiting resource
         hasMastery: skillID !== CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
@@ -819,20 +830,44 @@ function initialVariables(skillID) {
             || skillID === CONSTANTS.skill.Mining
             || skillID === CONSTANTS.skill.Thieving,
         // Generate default values for script
-        poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
-        maxLevel: ETASettings.getTargetLevel(skillID, skillLevel[skillID]),
+        // skill
+        skillXp: skillXP[skillID],
+        targetLevel: ETASettings.getTargetLevel(skillID, skillLevel[skillID]),
+        skillLim: [], // Xp needed to reach next level
+        skillLimLevel: [],
+        // mastery
+        masteryXp: 0,
+        targetMastery: 0,
+        targetMasteryXp: 0,
+        masteryLim: [], // Xp needed to reach next level
+        masteryLimLevel: [0],
+        totalMasteryLevel: 0,
+        // pool
+        poolXp: 0,
+        targetPool: 0,
+        targetPoolXp: 0,
+        poolLim: [], // Xp need to reach next pool checkpoint
+        chanceToKeep: [],
+        maxPoolXp: 0,
         tokens: 0,
+        poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
     }
-    initial.maxXp = convertLvlToXp(initial.maxLevel);
-    //Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
-    initial.masteryLimLevel = Array.from({length: 98}, (_, i) => i + 2);
-    initial.masteryLimLevel.push(Infinity);
-    //Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
+    // skill
+    initial.targetXp = convertLvlToXp(initial.targetLevel);
+    // Breakpoints for skill bonuses - default all levels starting at 2 to 99, followed by Infinity
     initial.skillLimLevel = Array.from({length: 98}, (_, i) => i + 2);
     initial.skillLimLevel.push(Infinity);
+    // mastery
+    // Breakpoints for mastery bonuses - default all levels starting at 2 to 99, followed by Infinity
+    if (initial.hasMastery) {
+        initial.masteryLimLevel = Array.from({length: 98}, (_, i) => i + 2);
+    }
+    initial.masteryLimLevel.push(Infinity);
     // Chance to keep at breakpoints - default 0.2% per level
-    initial.chanceToKeep = Array.from({length: 99}, (_, i) => i * 0.002);
-    initial.chanceToKeep[98] += 0.05; // Level 99 Bonus
+    if (initial.hasMastery) {
+        initial.chanceToKeep = Array.from({length: 99}, (_, i) => i * 0.002);
+        initial.chanceToKeep[98] += 0.05; // Level 99 Bonus
+    }
     return initial;
 }
 
@@ -986,6 +1021,7 @@ function configureMagic(initial) {
     }
     initial.masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
     initial.chanceToKeep = [0]; //Thus no chance to keep
+    initial.itemXp = ALTMAGIC[selectedAltMagic].magicXP;
     return initial;
 }
 
@@ -1173,19 +1209,19 @@ function currentVariables(initial, resources) {
         sumTotalTime: 0,
         // skill
         skillXp: initial.skillXp,
-        maxSkillReached: initial.skillXp >= initial.maxXp,
-        maxSkillTime: 0,
-        maxSkillResources: 0,
+        targetSkillReached: initial.skillXp >= initial.targetXp,
+        targetSkillTime: 0,
+        targetSkillResources: 0,
         // mastery
         masteryXp: initial.masteryXp,
-        maxMasteryReached: initial.masteryXp >= initial.maxMasteryXp,
-        maxMasteryTime: 0,
-        maxMasteryResources: 0,
+        targetMasteryReached: initial.masteryXp >= initial.targetMasteryXp,
+        targetMasteryTime: 0,
+        targetMasteryResources: 0,
         // pool
         poolXp: initial.poolXp,
-        maxPoolReached: initial.poolXp >= initial.targetPoolXp,
-        maxPoolTime: 0,
-        maxPoolResources: 0,
+        targetPoolReached: initial.poolXp >= initial.targetPoolXp,
+        targetPoolTime: 0,
+        targetPoolResources: 0,
         totalMasteryLevel: initial.totalMasteryLevel,
         // items
         resources: resources,
@@ -1194,6 +1230,7 @@ function currentVariables(initial, resources) {
         // estimated number of actions taken so far
         actions: 0,
     };
+    // set secondary if it exists
     if (initial.secondary !== undefined) {
         current.secondary = currentVariables(initial.secondary, initial.secondary.recordCraft);
     }
@@ -1209,12 +1246,19 @@ function currentVariables(initial, resources) {
 }
 
 function gainPerAction(initial, current, currentInterval) {
-    let gains = {};
-    gains.xpPerAction = skillXpAdjustment(initial, current.poolXp, current.masteryXp);
-    gains.masteryXpPerAction = calcMasteryXpToAdd(initial, current, currentInterval);
-    gains.poolXpPerAction = calcPoolXpToAdd(current.skillXp, gains.masteryXpPerAction);
-    gains.tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp);
-    gains.tokenXpPerAction = initial.maxPoolXp / 1000 * gains.tokensPerAction;
+    const gains = {
+        xpPerAction: skillXpAdjustment(initial, current.poolXp, current.masteryXp),
+        masteryXpPerAction: 0,
+        poolXpPerAction: 0,
+        tokensPerAction: 0,
+        tokenXpPerAction: 0,
+    };
+    if (initial.hasMastery) {
+        gains.masteryXpPerAction = calcMasteryXpToAdd(initial, current, currentInterval);
+        gains.poolXpPerAction = calcPoolXpToAdd(current.skillXp, gains.masteryXpPerAction);
+        gains.tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp);
+        gains.tokenXpPerAction = initial.maxPoolXp / 1000 * gains.tokensPerAction;
+    }
     return gains
 }
 
@@ -1256,7 +1300,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
         gains.poolXpPerAction += gains.tokenXpPerAction;
     }
 
-    // Distance to Limits
+    // Actions until limit
     getLim = (lims, xp, max) => {
         const lim = lims.find(element => element > xp);
         if (xp < max && max < lim) {
@@ -1264,22 +1308,25 @@ function actionsToBreakpoint(initial, current, noResources = false) {
         }
         return Math.ceil(lim);
     }
-    const skillXpToLimit = getLim(initial.skillLim, current.skillXp, initial.maxXp) - current.skillXp;
-    const masteryXpToLimit = getLim(initial.skillLim, current.masteryXp, initial.maxMasteryXp) - current.masteryXp;
-    let secondaryMasteryXpToLimit = Infinity;
-    if (initial.secondary !== undefined) {
-        secondaryMasteryXpToLimit = getLim(initial.secondary.skillLim, current.secondary.masteryXp, initial.secondary.maxMasteryXp) - current.secondary.masteryXp;
-    }
-    const poolXpToLimit = getLim(initial.poolLim, current.poolXp, initial.targetPoolXp) - current.poolXp;
-
-    // Actions to limits
+    // skill
+    const skillXpToLimit = getLim(initial.skillLim, current.skillXp, initial.targetXp) - current.skillXp;
     const skillXpActions = skillXpToLimit / gains.xpPerAction;
-    const masteryXpActions = masteryXpToLimit / gains.masteryXpPerAction;
+    // mastery variables
+    let masteryXpActions = Infinity;
     let secondaryMasteryXpPrimaryActions = Infinity;
-    if (initial.secondary !== undefined) {
-        secondaryMasteryXpPrimaryActions = secondaryMasteryXpToLimit / gains.secondaryMasteryXpPerPrimaryAction;
+    let poolXpActions = Infinity;
+    if (initial.hasMastery) {
+        // mastery
+        const masteryXpToLimit = getLim(initial.skillLim, current.masteryXp, initial.targetMasteryXp) - current.masteryXp;
+        masteryXpActions = masteryXpToLimit / gains.masteryXpPerAction;
+        if (initial.secondary !== undefined) {
+            const secondaryMasteryXpToLimit = getLim(initial.secondary.skillLim, current.secondary.masteryXp, initial.secondary.targetMasteryXp) - current.secondary.masteryXp;
+            secondaryMasteryXpPrimaryActions = secondaryMasteryXpToLimit / gains.secondaryMasteryXpPerPrimaryAction;
+        }
+        // pool
+        const poolXpToLimit = getLim(initial.poolLim, current.poolXp, initial.targetPoolXp) - current.poolXp;
+        poolXpActions = poolXpToLimit / gains.poolXpPerAction;
     }
-    const poolXpActions = poolXpToLimit / gains.poolXpPerAction;
 
     // Minimum actions based on limits
     let expectedActions = Math.ceil(Math.min(skillXpActions, masteryXpActions, secondaryMasteryXpPrimaryActions, poolXpActions));
@@ -1338,27 +1385,27 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     }
     current.poolXp += gains.poolXpPerAction * expectedActions;
     // Time for target skill level, 99 mastery, and 100% pool
-    if (!current.maxSkillReached && initial.maxXp <= current.skillXp) {
-        current.maxSkillTime = current.sumTotalTime;
-        current.maxSkillReached = true;
-        current.maxSkillResources = initial.recordCraft - current.resources;
+    if (!current.targetSkillReached && initial.targetXp <= current.skillXp) {
+        current.targetSkillTime = current.sumTotalTime;
+        current.targetSkillReached = true;
+        current.targetSkillResources = initial.recordCraft - current.resources;
     }
-    if (!current.maxMasteryReached && initial.maxMasteryXp <= current.masteryXp) {
-        current.maxMasteryTime = current.sumTotalTime;
-        current.maxMasteryReached = true;
-        current.maxMasteryResources = initial.recordCraft - current.resources;
+    if (!current.targetMasteryReached && initial.targetMasteryXp <= current.masteryXp) {
+        current.targetMasteryTime = current.sumTotalTime;
+        current.targetMasteryReached = true;
+        current.targetMasteryResources = initial.recordCraft - current.resources;
     }
     if (initial.secondary !== undefined) {
-        if (!current.secondary.maxMasteryReached && initial.maxMasteryXp <= current.secondary.masteryXp) {
-            current.secondary.maxMasteryTime = current.secondary.sumTotalTime;
-            current.secondary.maxMasteryReached = true;
-            current.secondary.maxMasteryResources = initial.recordCraft - current.secondary.resources;
+        if (!current.secondary.targetMasteryReached && initial.targetMasteryXp <= current.secondary.masteryXp) {
+            current.secondary.targetMasteryTime = current.secondary.sumTotalTime;
+            current.secondary.targetMasteryReached = true;
+            current.secondary.targetMasteryResources = initial.recordCraft - current.secondary.resources;
         }
     }
-    if (!current.maxPoolReached && initial.targetPoolXp <= current.poolXp) {
-        current.maxPoolTime = current.sumTotalTime;
-        current.maxPoolReached = true;
-        current.maxPoolResources = initial.recordCraft - current.resources;
+    if (!current.targetPoolReached && initial.targetPoolXp <= current.poolXp) {
+        current.targetPoolTime = current.sumTotalTime;
+        current.targetPoolReached = true;
+        current.targetPoolResources = initial.recordCraft - current.resources;
     }
     // Level up mastery if hitting Mastery limit
     if (expectedActions === masteryXpActions) {
@@ -1376,13 +1423,15 @@ function currentXpRates(initial) {
     const initialInterval = intervalAdjustment(initial, initial.poolXp, initial.masteryXp);
     const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
     rates.xpH = skillXpAdjustment(initial, initial.poolXp, initial.masteryXp) / initialAverageActionTime * 1000 * 3600;
-    // compute current mastery xp / h using the getMasteryXpToAdd from the game or the method from this script
-    // const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
-    const masteryXpPerAction = calcMasteryXpToAdd(initial, initial, initialInterval);
-    rates.masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
-    // pool percentage per hour
-    rates.poolH = calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
-    rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp);
+    if (initial.hasMastery) {
+        // compute current mastery xp / h using the getMasteryXpToAdd from the game or the method from this script
+        // const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
+        const masteryXpPerAction = calcMasteryXpToAdd(initial, initial, initialInterval);
+        rates.masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
+        // pool percentage per hour
+        rates.poolH = calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
+        rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp);
+    }
     return rates;
 }
 
@@ -1429,19 +1478,19 @@ function calcExpectedTime(initial) {
     const poolXpToPercentage = poolXp => Math.min((poolXp / initial.maxPoolXp) * 100, poolCap).toFixed(2);
     // create result object
     let expectedTime = {
-        "timeLeft": Math.round(current.sumTotalTime),
-        "actions": current.actions,
-        "finalSkillXp": current.skillXp,
-        "finalMasteryXp": current.masteryXp,
-        "finalPoolPercentage": poolXpToPercentage(current.poolXp),
-        "maxPoolTime": current.maxPoolTime,
-        "maxMasteryTime": current.maxMasteryTime,
-        "maxSkillTime": current.maxSkillTime,
-        "rates": getXpRates(initial, current),
-        "tokens": current.tokens,
+        timeLeft: Math.round(current.sumTotalTime),
+        actions: current.actions,
+        finalSkillXp: current.skillXp,
+        finalMasteryXp: current.masteryXp,
+        finalPoolPercentage: poolXpToPercentage(current.poolXp),
+        targetPoolTime: current.targetPoolTime,
+        targetMasteryTime: current.targetMasteryTime,
+        targetSkillTime: current.targetSkillTime,
+        rates: getXpRates(initial, current),
+        tokens: current.tokens,
     };
     // continue calculations until time to all targets is found
-    while (!current.maxSkillReached || !current.maxMasteryReached || !current.maxPoolReached) {
+    while (!current.targetSkillReached || (initial.hasMastery && (!current.targetMasteryReached || !current.targetPoolReached))) {
         current = actionsToBreakpoint(initial, current, true);
     }
     // if it is a gathering skill, then set final values to the values when reaching the final target
@@ -1452,9 +1501,9 @@ function calcExpectedTime(initial) {
         expectedTime.tokens = current.tokens;
     }
     // set time to targets
-    expectedTime.maxSkillTime = current.maxSkillTime;
-    expectedTime.maxMasteryTime = current.maxMasteryTime;
-    expectedTime.maxPoolTime = current.maxPoolTime;
+    expectedTime.targetSkillTime = current.targetSkillTime;
+    expectedTime.targetMasteryTime = current.targetMasteryTime;
+    expectedTime.targetPoolTime = current.targetPoolTime;
     // return the resulting data object
     expectedTime.current = current;
     return expectedTime;
@@ -1502,6 +1551,15 @@ function setupTimeRemaining(initial) {
     }
     // Configure initial mastery values for all skills with masteries
     if (initial.hasMastery) {
+        // mastery
+        initial.totalMasteryLevel = getCurrentTotalMasteryLevelForSkill(initial.skillID);
+        if (!initial.isGathering) {
+            initial.masteryID = items[initial.itemID].masteryID[1];
+        }
+        initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
+        initial.targetMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(initial.masteryXp));
+        initial.targetMasteryXp = convertLvlToXp(initial.targetMastery);
+        // pool
         initial.poolXp = MASTERY[initial.skillID].pool;
         initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
         initial.targetPool = ETASettings.getTargetPool(initial.skillID, 100 * initial.poolXp / initial.maxPoolXp);
@@ -1509,13 +1567,6 @@ function setupTimeRemaining(initial) {
         if (initial.targetPool !== 100) {
             initial.targetPoolXp = initial.maxPoolXp / 100 * initial.targetPool;
         }
-        initial.totalMasteryLevel = getCurrentTotalMasteryLevelForSkill(initial.skillID);
-        if (!initial.isGathering) {
-            initial.masteryID = items[initial.itemID].masteryID[1];
-        }
-        initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
-        initial.maxMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(initial.masteryXp));
-        initial.maxMasteryXp = convertLvlToXp(initial.maxMastery);
         initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
     }
 
@@ -1558,33 +1609,22 @@ function setupTimeRemaining(initial) {
 function timeRemaining(initial) {
     initial = setupTimeRemaining(initial);
     //Time left
-    let results = {};
-    let ms = {
-        resources: 0,
-        skill: 0,
-        mastery: 0,
-        pool: 0,
+    const results = calcExpectedTime(initial);
+    const ms = {
+        resources: Math.round(results.timeLeft),
+        skill: Math.round(results.targetSkillTime),
+        mastery: Math.round(results.targetMasteryTime),
+        pool: Math.round(results.targetPoolTime),
     };
-    results.current = {};
-    if (!initial.hasMastery) {
-        ms.resources = Math.round(initial.recordCraft * initial.skillInterval);
-        results.actions = initial.recordCraft;
-    } else {
-        results = calcExpectedTime(initial);
-        ms.resources = Math.round(results.timeLeft);
-        ms.skill = Math.round(results.maxSkillTime);
-        ms.mastery = Math.round(results.maxMasteryTime);
-        ms.pool = Math.round(results.maxPoolTime);
-    }
 
     // Set global variables to track completion
     let times = [];
     if (!initial.isGathering) {
         times.push(ETA.time(ETASettings.DING_RESOURCES, 0, ms.resources, -ms.resources, "Processing finished."));
     }
-    times.push(ETA.time(ETASettings.DING_LEVEL, initial.maxLevel, ms.skill, convertXpToLvl(initial.skillXp), "Target level reached."));
+    times.push(ETA.time(ETASettings.DING_LEVEL, initial.targetLevel, ms.skill, convertXpToLvl(initial.skillXp), "Target level reached."));
     if (initial.hasMastery) {
-        times.push(ETA.time(ETASettings.DING_MASTERY, initial.maxMastery, ms.mastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
+        times.push(ETA.time(ETASettings.DING_MASTERY, initial.targetMastery, ms.mastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
         times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, ms.pool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
     }
     ETA.setTimeLeft(initial, times);
@@ -1592,9 +1632,7 @@ function timeRemaining(initial) {
     //Inject timeLeft HTML
     const now = new Date();
     const timeLeftElement = injectHTML(initial, results, ms.resources, now);
-    if (initial.hasMastery) {
-        generateTooltips(initial, ms, results, timeLeftElement, now);
-    }
+    generateTooltips(initial, ms, results, timeLeftElement, now);
     generateProgressBars(initial, results);
 }
 
@@ -1612,10 +1650,12 @@ function injectHTML(initial, results, msLeft, now) {
     if (timeLeftElement !== null) {
         let finishedTime = addMSToDate(now, msLeft);
         timeLeftElement.textContent = "";
-        if (ETASettings.SHOW_XP_RATE && initial.hasMastery) {
-            timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.rates.xpH))
-                + "\r\nMXp/h: " + formatNumber(Math.floor(results.rates.masteryXpH))
-                + `\r\nPool/h: ${results.rates.poolH.toFixed(2)}%`
+        if (ETASettings.SHOW_XP_RATE) {
+            timeLeftElement.textContent = "Xp/h: " + formatNumber(Math.floor(results.rates.xpH));
+            if (initial.hasMastery) {
+                timeLeftElement.textContent += "\r\nMXp/h: " + formatNumber(Math.floor(results.rates.masteryXpH))
+                    + `\r\nPool/h: ${results.rates.poolH.toFixed(2)}%`
+            }
         }
         if (!initial.isGathering) {
             if (msLeft === 0) {
@@ -1656,7 +1696,7 @@ function generateTooltips(initial, ms, results, timeLeftElement, now) {
         'Final Level',
         formatLevel(finalLevel, levelProgress) + ' / 99',
         'success',
-    ) + tooltipSection(initial, now, ms.skill, initial.maxLevel, results.current.maxSkillResources);
+    ) + tooltipSection(initial, now, ms.skill, initial.targetLevel, results.current.targetSkillResources);
     // mastery tooltip
     if (initial.hasMastery && initial.secondary === undefined) {
         // don't show mastery target when combining multiple actions
@@ -1666,7 +1706,7 @@ function generateTooltips(initial, ms, results, timeLeftElement, now) {
             'Final Mastery',
             formatLevel(finalMastery, masteryProgress) + ' / 99',
             'info',
-        ) + tooltipSection(initial, now, ms.mastery, initial.maxMastery, results.current.maxMasteryResources);
+        ) + tooltipSection(initial, now, ms.mastery, initial.targetMastery, results.current.targetMasteryResources);
     }
     // pool tooltip
     if (initial.hasMastery) {
@@ -1683,7 +1723,7 @@ function generateTooltips(initial, ms, results, timeLeftElement, now) {
                 prepend += '<br>';
             }
         }
-        tooltip += tooltipSection(initial, now, ms.pool, `${initial.targetPool}%`, results.current.maxPoolResources, prepend);
+        tooltip += tooltipSection(initial, now, ms.pool, `${initial.targetPool}%`, results.current.targetPoolResources, prepend);
     }
     // wrap and return
     timeLeftElement._tippy.setContent(`<div>${tooltip}</div>`);
