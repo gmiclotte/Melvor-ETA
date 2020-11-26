@@ -628,9 +628,6 @@ function masteryPreservation(initial, masteryEXp, chanceToRefTable) {
 
 // Adjust interval based on unlocked bonuses
 function intervalAdjustment(initial, poolXp, masteryXp) {
-    if (!initial.hasMastery) {
-        return initial.skillInterval;
-    }
     let adjustedInterval = initial.skillInterval;
     switch (initial.skillID) {
         case CONSTANTS.skill.Firemaking:
@@ -664,9 +661,6 @@ function intervalAdjustment(initial, poolXp, masteryXp) {
 
 // Adjust interval based on unlocked bonuses
 function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) {
-    if (!initial.hasMastery) {
-        return currentInterval;
-    }
     let adjustedInterval = currentInterval;
     switch (initial.skillID) {
         case CONSTANTS.skill.Mining:
@@ -725,9 +719,6 @@ function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) 
 
 // Adjust preservation chance based on unlocked bonuses
 function poolPreservation(initial, poolXp) {
-    if (!initial.hasMastery) {
-        return 0;
-    }
     let preservation = 0;
     switch (initial.skillID) {
         case CONSTANTS.skill.Smithing:
