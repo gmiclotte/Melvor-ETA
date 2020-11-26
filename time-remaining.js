@@ -140,7 +140,7 @@ ETA.taskComplete = function (skillID) {
     for (let i = 0; i < ETA.timeLeftLast.times.length; i++) {
         const last = ETA.timeLeftLast.times[i];
         const current = ETA.timeLeftCurrent.times[i];
-        if (last.time === 0) {
+        if (last.current >= last.target) {
             // target already reached
             continue;
         }
