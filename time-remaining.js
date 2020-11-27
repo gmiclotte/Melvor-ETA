@@ -478,6 +478,7 @@ function script() {
 ////////////////////
 // Function to get unformatted number for Qty
 ETA.bankCache = {};
+
 function getQtyOfItem(itemID) {
     const cache = ETA.bankCache[itemID];
     if (cache !== undefined && bank[cache] !== undefined && bank[cache].id === itemID) {
@@ -610,7 +611,7 @@ function binarySearch(array, pred) {
 
 // Convert Xp value to level
 function convertXpToLvl(xp, noCap = false) {
-    let level = binarySearch(ETA.lvlToXp, (t) => (xp<=t)) - 1;
+    let level = binarySearch(ETA.lvlToXp, (t) => (xp <= t)) - 1;
     if (level < 1) {
         level = 1;
     } else if (!noCap && level > 99) {
@@ -815,13 +816,14 @@ function skillXpAdjustment(initial, poolXp, masteryXp) {
 }
 
 // Calculate total number of unlocked items for skill based on current skill level
+ETA.msLevelMap = {};
+
 function calcTotalUnlockedItems(skillID, skillXp) {
-    let count = 0;
-    let currentSkillLevel = convertXpToLvl(skillXp);
-    for (let i = 0; i < MILESTONES[skillName[skillID]].length; i++) {
-        if (currentSkillLevel >= MILESTONES[skillName[skillID]][i].level) count++;
+    const currentSkillLevel = convertXpToLvl(skillXp);
+    if (ETA.msLevelMap[skillID] === undefined) {
+        ETA.msLevelMap[skillID] = MILESTONES[skillName[skillID]].map(x => x.level)
     }
-    return count;
+    return binarySearch(ETA.msLevelMap[skillID], (t) => currentSkillLevel < t);
 }
 
 // compute average actions per mastery token
