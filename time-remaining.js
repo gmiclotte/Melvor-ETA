@@ -477,9 +477,15 @@ function script() {
 //internal methods//
 ////////////////////
 // Function to get unformatted number for Qty
+ETA.bankCache = {};
 function getQtyOfItem(itemID) {
+    const cache = ETA.bankCache[itemID];
+    if (cache !== undefined && bank[cache] !== undefined && bank[cache].id === itemID) {
+        return bank[cache].qty;
+    }
     for (let i = 0; i < bank.length; i++) {
         if (bank[i].id === itemID) {
+            ETA.bankCache[itemID] = i;
             return bank[i].qty;
         }
     }
