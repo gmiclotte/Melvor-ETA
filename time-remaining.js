@@ -588,13 +588,23 @@ function convertLvlToXp(level) {
     return xp;
 }
 
+// binary search for optimization
+function binarySearch(array, pred) {
+    let lo = -1, hi = array.length;
+    while (1 + lo < hi) {
+        const mi = lo + ((hi - lo) >> 1);
+        if (pred(array[mi])) {
+            hi = mi;
+        } else {
+            lo = mi;
+        }
+    }
+    return hi;
+}
+
 // Convert Xp value to level
 function convertXpToLvl(xp, noCap = false) {
-    let level = 1;
-    while (ETA.lvlToXp[level] < xp) {
-        level++;
-    }
-    level--;
+    let level = binarySearch(ETA.lvlToXp, (t) => (xp<=t)) - 1;
     if (level < 1) {
         level = 1;
     } else if (!noCap && level > 99) {
