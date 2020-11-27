@@ -305,6 +305,9 @@ function script() {
     // Loading script
     ETA.log('loading...');
 
+    // lvlToXp cache
+    ETA.lvlToXp = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
+
     // select and start craft overrides
     ETA.selectRef = {};
     ETA.startRef = {};
@@ -572,14 +575,6 @@ function dateFormat(now, then, is12h = ETASettings.IS_12H_CLOCK) {
     return date + hours + ':' + minutes + amOrPm;
 }
 
-// Level to Xp Array
-function lvlToXp(level) {
-    if (ETA.lvlToXpCache === undefined) {
-        ETA.lvlToXpCache = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
-    }
-    return ETA.lvlToXpCache[level];
-}
-
 // Convert level to Xp needed to reach that level
 function convertLvlToXp(level) {
     if (level === Infinity) {
@@ -589,14 +584,14 @@ function convertLvlToXp(level) {
     if (level === 1) {
         return xp;
     }
-    xp = lvlToXp(level) + 1;
+    xp = ETA.lvlToXp[level] + 1;
     return xp;
 }
 
 // Convert Xp value to level
 function convertXpToLvl(xp, noCap = false) {
     let level = 1;
-    while (lvlToXp(level) < xp) {
+    while (ETA.lvlToXp[level] < xp) {
         level++;
     }
     level--;
