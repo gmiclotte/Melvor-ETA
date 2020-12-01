@@ -1770,6 +1770,10 @@ function tooltipSection(initial, now, ms, target, resources, prepend = '') {
             resources,
             ),
         );
+    } else if (prepend !== '') {
+        return wrapTimeLeft(
+            prepend,
+        );
     }
     return '';
 }
