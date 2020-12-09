@@ -285,6 +285,32 @@ ETA.timeRemainingWrapper = function (skillID, checkTaskComplete) {
         }
     } else {
         let initial = initialVariables(skillID, checkTaskComplete);
+        switch (initial.skillID) {
+            case CONSTANTS.skill.Smithing:
+                initial.currentAction = selectedSmith;
+                break;
+            case CONSTANTS.skill.Fletching:
+                initial.currentAction = selectedFletch;
+                break;
+            case CONSTANTS.skill.Runecrafting:
+                initial.currentAction = selectedRunecraft;
+                break;
+            case CONSTANTS.skill.Crafting:
+                initial.currentAction = selectedCraft;
+                break;
+            case CONSTANTS.skill.Herblore:
+                initial.currentAction = selectedHerblore;
+                break;
+            case CONSTANTS.skill.Cooking:
+                initial.currentAction = selectedFood;
+                break;
+            case CONSTANTS.skill.Firemaking:
+                initial.currentAction = selectedLog;
+                break;
+            case CONSTANTS.skill.Magic:
+                initial.currentAction = selectedAltMagic;
+                break;
+        }
         asyncTimeRemaining(initial);
     }
 }
@@ -470,23 +496,23 @@ function script() {
         }
     }
 
-    const scriptLoader = setInterval(loadScript, 1000);
+    const scriptLoader = setInterval(loadScript, 200);
 })();
 
 ////////////////////
 //internal methods//
 ////////////////////
 // Function to get unformatted number for Qty
-ETA.bankCache = {};
+window.bankCache = {};
 
 function getQtyOfItem(itemID) {
-    const cache = ETA.bankCache[itemID];
+    const cache = window.bankCache[itemID];
     if (cache !== undefined && bank[cache] !== undefined && bank[cache].id === itemID) {
         return bank[cache].qty;
     }
     for (let i = 0; i < bank.length; i++) {
         if (bank[i].id === itemID) {
-            ETA.bankCache[itemID] = i;
+            window.bankCache[itemID] = i;
             return bank[i].qty;
         }
     }
@@ -901,7 +927,7 @@ function skillCapeEquipped(capeID) {
 }
 
 function configureSmithing(initial) {
-    initial.itemID = smithingItems[selectedSmith].itemID;
+    initial.itemID = smithingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].smithingXP;
     initial.skillInterval = 2000;
     if (godUpgrade[3]) initial.skillInterval *= 0.8;
@@ -915,7 +941,7 @@ function configureSmithing(initial) {
 }
 
 function configureFletching(initial) {
-    initial.itemID = fletchingItems[selectedFletch].itemID;
+    initial.itemID = fletchingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].fletchingXP;
     initial.skillInterval = 2000;
     if (godUpgrade[0]) initial.skillInterval *= 0.8;
@@ -934,7 +960,7 @@ function configureFletching(initial) {
 }
 
 function configureRunecrafting(initial) {
-    initial.itemID = runecraftingItems[selectedRunecraft].itemID;
+    initial.itemID = runecraftingItems[].itemID;
     initial.itemXp = items[initial.itemID].runecraftingXP;
     initial.skillInterval = 2000;
     if (godUpgrade[1]) initial.skillInterval *= 0.8;
@@ -952,7 +978,7 @@ function configureRunecrafting(initial) {
 }
 
 function configureCrafting(initial) {
-    initial.itemID = craftingItems[selectedCraft].itemID;
+    initial.itemID = craftingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].craftingXP;
     initial.skillInterval = 3000;
     if (godUpgrade[0]) initial.skillInterval *= 0.8;
@@ -965,8 +991,8 @@ function configureCrafting(initial) {
 }
 
 function configureHerblore(initial) {
-    initial.itemID = herbloreItemData[selectedHerblore].itemID[getHerbloreTier(selectedHerblore)];
-    initial.itemXp = herbloreItemData[selectedHerblore].herbloreXP;
+    initial.itemID = herbloreItemData[initial.currentAction].itemID[getHerbloreTier(initial.currentAction)];
+    initial.itemXp = herbloreItemData[initial.currentAction].herbloreXP;
     initial.skillInterval = 2000;
     if (godUpgrade[1]) initial.skillInterval *= 0.8;
     for (let i of items[initial.itemID].herbloreReq) {
@@ -976,7 +1002,7 @@ function configureHerblore(initial) {
 }
 
 function configureCooking(initial) {
-    initial.itemID = selectedFood;
+    initial.itemID = initial.currentAction;
     initial.itemXp = items[initial.itemID].cookingXP;
     if (currentCookingFire > 0) {
         initial.itemXp *= (1 + cookingFireData[currentCookingFire - 1].bonusXP / 100);
@@ -991,9 +1017,9 @@ function configureCooking(initial) {
 }
 
 function configureFiremaking(initial) {
-    initial.itemID = selectedLog;
-    initial.itemXp = logsData[selectedLog].xp * (1 + bonfireBonus / 100);
-    initial.skillInterval = logsData[selectedLog].interval;
+    initial.itemID = initial.currentAction;
+    initial.itemXp = logsData[initial.currentAction].xp * (1 + bonfireBonus / 100);
+    initial.skillInterval = logsData[initial.currentAction].interval;
     if (godUpgrade[3]) initial.skillInterval *= 0.8;
     initial.skillReq = [{id: initial.itemID, qty: 1}];
     initial.chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
@@ -1001,15 +1027,14 @@ function configureFiremaking(initial) {
 }
 
 function configureMagic(initial) {
-    initial.currentAction = selectedAltMagic;
     initial.skillInterval = 2000;
     //Find need runes for spell
-    if (ALTMAGIC[selectedAltMagic].runesRequiredAlt !== undefined && useCombinationRunes) {
-        for (let i of ALTMAGIC[selectedAltMagic].runesRequiredAlt) {
+    if (ALTMAGIC[initial.currentAction].runesRequiredAlt !== undefined && useCombinationRunes) {
+        for (let i of ALTMAGIC[initial.currentAction].runesRequiredAlt) {
             initial.skillReq.push({...i});
         }
     } else {
-        for (let i of ALTMAGIC[selectedAltMagic].runesRequired) {
+        for (let i of ALTMAGIC[initial.currentAction].runesRequired) {
             initial.skillReq.push({...i});
         }
     }
@@ -1028,23 +1053,23 @@ function configureMagic(initial) {
     }
     initial.skillReq = initial.skillReq.filter(item => item.qty > 0); // Remove all runes with 0 cost
     //Other items
-    if (ALTMAGIC[selectedAltMagic].selectItem === 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
+    if (ALTMAGIC[initial.currentAction].selectItem === 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
         initial.skillReq.push({id: selectedMagicItem[1], qty: 1});
-    } else if (ALTMAGIC[selectedAltMagic].selectItem === -1) { // Spells that doesn't require you to select an item
-        if (ALTMAGIC[selectedAltMagic].needCoal) { // Rags to Riches II
+    } else if (ALTMAGIC[initial.currentAction].selectItem === -1) { // Spells that doesn't require you to select an item
+        if (ALTMAGIC[initial.currentAction].needCoal) { // Rags to Riches II
             initial.skillReq.push({id: 48, qty: 1});
         }
-    } else if (selectedMagicItem[0] !== null && ALTMAGIC[selectedAltMagic].selectItem === 0) { // SUPERHEAT
+    } else if (selectedMagicItem[0] !== null && ALTMAGIC[initial.currentAction].selectItem === 0) { // SUPERHEAT
         for (let i of items[selectedMagicItem[0]].smithReq) {
             initial.skillReq.push({...i});
         }
-        if (ALTMAGIC[selectedAltMagic].ignoreCoal) {
+        if (ALTMAGIC[initial.currentAction].ignoreCoal) {
             initial.skillReq = initial.skillReq.filter(item => item.id !== 48);
         }
     }
     initial.masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
     initial.chanceToKeep = [0]; //Thus no chance to keep
-    initial.itemXp = ALTMAGIC[selectedAltMagic].magicXP;
+    initial.itemXp = ALTMAGIC[initial.currentAction].magicXP;
     return initial;
 }
 
@@ -1111,6 +1136,29 @@ function configureFishing(initial) {
 
 // Calculate mastery xp based on unlocked bonuses
 function calcMasteryXpToAdd(initial, current, timePerAction) {
+    switch (initial.skillID) {
+        case CONSTANTS.skill.Firemaking:
+            timePerAction = logsData[initial.itemID].interval * 0.6;
+            break;
+        case CONSTANTS.skill.Cooking:
+            timePerAction = 2400;
+            break;
+        case CONSTANTS.skill.Smithing:
+            timePerAction = 1600;
+            break;
+        case CONSTANTS.skill.Fletching:
+            timePerAction = 1200;
+            break;
+        case CONSTANTS.skill.Crafting:
+            timePerAction = 1500;
+            break;
+        case CONSTANTS.skill.Runecrafting:
+            timePerAction = 1600;
+            break;
+        case CONSTANTS.skill.Herblore:
+            timePerAction = 1600;
+            break;
+    }
     let xpModifier = 1;
     // General Mastery Xp formula
     let xpToAdd = (
@@ -1505,6 +1553,7 @@ function calcExpectedTime(initial) {
         actions: current.actions,
         finalSkillXp: current.skillXp,
         finalMasteryXp: current.masteryXp,
+        finalPoolXp: current.poolXp,
         finalPoolPercentage: poolXpToPercentage(current.poolXp),
         targetPoolTime: current.targetPoolTime,
         targetMasteryTime: current.targetMasteryTime,
@@ -1520,6 +1569,7 @@ function calcExpectedTime(initial) {
     if (initial.isGathering) {
         expectedTime.finalSkillXp = current.skillXp;
         expectedTime.finalMasteryXp = current.masteryXp;
+        expectedTime.finalPoolXp = current.poolXp;
         expectedTime.finalPoolPercentage = poolXpToPercentage(current.poolXp);
         expectedTime.tokens = current.tokens;
     }
@@ -1591,10 +1641,6 @@ function setupTimeRemaining(initial) {
             initial.targetPoolXp = initial.maxPoolXp / 100 * initial.targetPool;
         }
         initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
-    }
-
-    if (initial.hasMastery && !initial.isGathering) {
-        initial.currentAction = initial.item;
     }
 
     // Apply itemXp Bonuses from gear and pets
