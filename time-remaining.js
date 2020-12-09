@@ -960,7 +960,7 @@ function configureFletching(initial) {
 }
 
 function configureRunecrafting(initial) {
-    initial.itemID = runecraftingItems[].itemID;
+    initial.itemID = runecraftingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].runecraftingXP;
     initial.skillInterval = 2000;
     if (godUpgrade[1]) initial.skillInterval *= 0.8;
