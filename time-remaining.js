@@ -932,7 +932,11 @@ function configureSmithing(initial) {
     initial.skillInterval = 2000;
     if (godUpgrade[3]) initial.skillInterval *= 0.8;
     for (let i of items[initial.itemID].smithReq) {
-        initial.skillReq.push(i);
+        const req = {...i};
+        if (req.id === CONSTANTS.item.Coal_Ore && skillCapeEquipped(CONSTANTS.item.Smithing_Skillcape)) {
+            req.qty /= 2;
+        }
+        initial.skillReq.push(req);
     }
     initial.masteryLimLevel = [20, 40, 60, 80, 99, Infinity]; // Smithing Mastery Limits
     initial.chanceToKeep = [0, 0.05, 0.10, 0.15, 0.20, 0.30]; //Smithing Mastery bonus percentages
