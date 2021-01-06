@@ -7,9 +7,9 @@
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
 // @description	Forked from Breindahl#2660's Melvor TimeRemaining script v0.6.2.2., originally developed by Breindahl#2660, Xhaf#6478 and Visua#9999
 // @author		GMiclotte
-// @match		https://melvoridle.com/*
-// @match		https://www.melvoridle.com/*
-// @match		https://test.melvoridle.com/*
+// @match        https://*.melvoridle.com/*
+// @exclude      https://wiki.melvoridle.com*
+// @noframes
 // @grant		none
 // ==/UserScript==
 
