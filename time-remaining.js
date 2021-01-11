@@ -1648,7 +1648,7 @@ function setupTimeRemaining(initial) {
     }
 
     // Apply itemXp Bonuses from gear and pets
-    initial.itemXp = addXPBonuses(initial.skillID, initial.itemXp);
+    initial.itemXp = addXPBonuses(initial.skillID, initial.itemXp, true);
 
     // Populate masteryLim from masteryLimLevel
     for (let i = 0; i < initial.masteryLimLevel.length; i++) {
