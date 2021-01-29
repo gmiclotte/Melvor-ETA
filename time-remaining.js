@@ -853,10 +853,13 @@ function calcTotalUnlockedItems(skillID, skillXp) {
 }
 
 // compute average actions per mastery token
-function actionsPerToken(skillID, skillXp) {
+function actionsPerToken(skillID, skillXp, masteryXp) {
     let actions = 20000 / calcTotalUnlockedItems(skillID, skillXp);
     if (equippedItems.includes(CONSTANTS.item.Clue_Chasers_Insignia)) {
         actions *= 0.9;
+    }
+    if (skillID === CONSTANTS.skill.Cooking) {
+        actions /= 1 - calcBurnChance(masteryXp);
     }
     return actions;
 }
@@ -1340,7 +1343,7 @@ function gainPerAction(initial, current, currentInterval) {
     if (initial.hasMastery) {
         gains.masteryXpPerAction = calcMasteryXpToAdd(initial, current, currentInterval);
         gains.poolXpPerAction = calcPoolXpToAdd(current.skillXp, gains.masteryXpPerAction);
-        gains.tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp);
+        gains.tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp, current.masteryXp);
         gains.tokenXpPerAction = initial.maxPoolXp / 1000 * gains.tokensPerAction;
     }
     return gains
@@ -1514,7 +1517,7 @@ function currentXpRates(initial) {
         rates.masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
         // pool percentage per hour
         rates.poolH = calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
-        rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp);
+        rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp, initial.masteryXp);
     }
     return rates;
 }
