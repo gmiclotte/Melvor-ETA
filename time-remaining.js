@@ -1058,7 +1058,16 @@ function configureMagic(initial) {
     initial.skillReq = initial.skillReq.filter(item => item.qty > 0); // Remove all runes with 0 cost
     //Other items
     if (ALTMAGIC[initial.currentAction].selectItem === 1 && selectedMagicItem[1] !== null) { // Spells that just use 1 item
-        initial.skillReq.push({id: selectedMagicItem[1], qty: 1});
+        let found = false;
+        for (const req of initial.skillReq) {
+            if (req.id === selectedMagicItem[1]) {
+                req.qty++;
+                found = true;
+            }
+        }
+        if (!found) {
+            initial.skillReq.push({id: selectedMagicItem[1], qty: 1});
+        }
     } else if (ALTMAGIC[initial.currentAction].selectItem === -1) { // Spells that doesn't require you to select an item
         if (ALTMAGIC[initial.currentAction].needCoal) { // Rags to Riches II
             initial.skillReq.push({id: 48, qty: 1});
