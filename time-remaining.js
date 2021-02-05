@@ -190,7 +190,6 @@ ETA.addGlobalTargetInputs = () => {
         {id: 'LEVEL', label: 'Global level targets', defaultValue: [99]},
         {id: 'MASTERY', label: 'Global mastery targets', defaultValue: [99]},
         {id: 'POOL', label: 'Global pool targets (%)', defaultValue: [100]},
-        //{id: 'VOLUME', label: 'Ding volume', defaultValue: [0.1]},
     ].forEach(target => {
         const globalKey = 'GLOBAL_TARGET_' + target.id;
         ETA.globalTargetsCard.addNumberArrayInput(
@@ -278,7 +277,7 @@ ETA.taskComplete = function () {
     }
 }
 
-ETA.time = (ding, target, time, current, msg) => {
+ETA.time = (ding, target, current, msg) => {
     return {ding: ding, target: target, current: current, msg: msg};
 };
 
