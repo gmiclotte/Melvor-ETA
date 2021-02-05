@@ -115,6 +115,124 @@ ETA.log = function (...args) {
     console.log("Melvor ETA:", ...args)
 }
 
+ETA.createSettingsMenu = () => {
+    // check if combat sim methods are available
+    if (window.MICSR === undefined || MICSR.TabCard === undefined) {
+        ETA.menuCreationAttempts = (ETA.menuCreationAttempts || 0) + 1;
+        if (ETA.menuCreationAttempts > 10) {
+            ETA.log('Failed to add settings menu!')
+        } else {
+            // try again in 50 ms
+            setTimeout(ETA.createSettingsMenu, 50);
+        }
+        return;
+    }
+
+    // set names
+    ETA.menuItemID = 'etaButton';
+    ETA.modalID = 'etaModal';
+
+    // clean up in case elements already exist
+    MICSR.destroyMenu(ETA.menuItemID, ETA.modalID);
+
+    // create wrappers and access point
+    ETA.content = document.createElement('div');
+    ETA.content.className = 'mcsTabContent';
+    MICSR.addMenuItem('ETA Settings', 'assets/media/main/settings_header.svg', ETA.menuItemID, 'etaModal')
+    MICSR.addModal('ETA Settings', ETA.modalID, [ETA.content])
+
+    // add toggles card
+    ETA.addToggles();
+
+    // add global target card
+    ETA.addGlobalTargetInputs();
+
+    // add target card
+    ETA.addTargetInputs();
+
+    // log
+    ETA.log('added settings menu!')
+}
+
+ETA.addToggles = () => {
+    ETA.togglesCard = new MICSR.Card(ETA.content, '', '150px', true);
+    const titles = {
+        IS_12H_CLOCK: 'Use 12h clock',
+        IS_SHORT_CLOCK: 'Use short time format',
+        SHOW_XP_RATE: 'Show XP rates',
+        UNCAP_POOL: 'Show pool past 100%',
+        CURRENT_RATES: 'Show current rates',
+        USE_TOKENS: '"Use" Mastery tokens',
+        SHOW_PARTIAL_LEVELS: 'Show partial levels',
+        HIDE_REQUIRED: 'Hide required resources',
+        DING_RESOURCES: 'Ding when out of resources',
+        DING_LEVEL: 'Ding on level target',
+        DING_MASTERY: 'Ding on mastery target',
+        DING_POOL: 'Ding on pool target',
+    };
+    Object.getOwnPropertyNames(titles).forEach(property => {
+        const title = titles[property];
+        ETA.togglesCard.addToggleRadio(
+            title,
+            property,
+            ETASettings,
+            property,
+            ETASettings[property],
+        );
+    });
+}
+
+ETA.addGlobalTargetInputs = () => {
+    ETA.globalTargetsCard = new MICSR.Card(ETA.content, '', '150px', true);
+    [
+        {id: 'LEVEL', label: 'Global level targets', defaultValue: [99]},
+        {id: 'MASTERY', label: 'Global mastery targets', defaultValue: [99]},
+        {id: 'POOL', label: 'Global pool targets (%)', defaultValue: [100]},
+    ].forEach(target => {
+        const globalKey = 'GLOBAL_TARGET_' + target.id;
+        ETA.globalTargetsCard.addNumberArrayInput(
+            target.label,
+            ETASettings,
+            globalKey,
+            target.defaultValue
+        );
+    });
+
+}
+
+ETA.addTargetInputs = () => {
+    ETA.skillTargetCard = new MICSR.TabCard('ETA-target', true, ETA.content, '', '150px', true);
+    [
+        CONSTANTS.skill.Woodcutting,
+        CONSTANTS.skill.Fishing,
+        CONSTANTS.skill.Firemaking,
+        CONSTANTS.skill.Cooking,
+        CONSTANTS.skill.Mining,
+        CONSTANTS.skill.Smithing,
+        CONSTANTS.skill.Thieving,
+        CONSTANTS.skill.Fletching,
+        CONSTANTS.skill.Crafting,
+        CONSTANTS.skill.Runecrafting,
+        CONSTANTS.skill.Herblore,
+        CONSTANTS.skill.Magic,
+    ].forEach(i => {
+        const card = ETA.skillTargetCard.addTab(SKILLS[i].name, SKILLS[i].media, '', '150px');
+        card.addSectionTitle(SKILLS[i].name + ' Targets');
+        [
+            {id: 'LEVEL', label: 'Level targets'},
+            {id: 'MASTERY', label: 'Mastery targets'},
+            {id: 'POOL', label: 'Pool targets (%)'},
+        ].forEach(target => {
+            const key = 'TARGET_' + target.id;
+            card.addNumberArrayInput(
+                target.label,
+                ETASettings[key],
+                i,
+            );
+        });
+    });
+}
+
 
 ////////
 //ding//
@@ -467,6 +585,7 @@ function script() {
     }
     //
     ETA.log('loaded!');
+    setTimeout(ETA.createSettingsMenu, 50);
 }
 
 // inject the script
