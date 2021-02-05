@@ -101,7 +101,7 @@ window.ETASettings = {
         return ETASettings.getTarget(currentPool, ETASettings.GLOBAL_TARGET_POOL, ETASettings.TARGET_POOL[skillID], 100);
     },
     getTargetVolume: (skillID, currentVolume) => {
-        return ETASettings.getTarget(currentVolume, ETASettings.DING_VOLUME[skillID], .01);
+        return ETASettings.getTarget(currentVolume, ETASettings.DING_VOLUME[skillID], 0.1);
     },
 
     /*
@@ -193,7 +193,7 @@ ETA.addGlobalTargetInputs = () => {
         {id: 'LEVEL', label: 'Global level targets', defaultValue: [99]},
         {id: 'MASTERY', label: 'Global mastery targets', defaultValue: [99]},
         {id: 'POOL', label: 'Global pool targets (%)', defaultValue: [100]},
-        {id: 'VOLUME', label: 'Ding Volume', defaultValue: [.01]},
+        {id: 'VOLUME', label: 'Ding Volume', defaultValue: [0.1]},
     ].forEach(target => {
         const globalKey = 'GLOBAL_TARGET_' + target.id;
         ETA.globalTargetsCard.addNumberArrayInput(
