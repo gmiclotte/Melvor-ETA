@@ -270,7 +270,7 @@ ETA.taskComplete = function () {
             notifyPlayer(last.skillID, currentTime.msg, "danger");
             ETA.log(currentTime.msg);
             let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
-            ding.volume = ETASetting.DING_VOLUME;
+            ding.volume = ETASettings.DING_VOLUME;
             ding.play();
             return;
         }
