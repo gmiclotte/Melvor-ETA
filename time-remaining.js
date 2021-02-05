@@ -40,6 +40,8 @@ window.ETASettings = {
     DING_LEVEL: true,
     DING_MASTERY: true,
     DING_POOL: true,
+    //
+    DING_VOLUME: 0.1,
     /*
         targets
      */
@@ -268,7 +270,7 @@ ETA.taskComplete = function () {
             notifyPlayer(last.skillID, currentTime.msg, "danger");
             ETA.log(currentTime.msg);
             let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
-            ding.volume = 0.1;
+            ding.volume = ETASetting.DING_VOLUME;
             ding.play();
             return;
         }
