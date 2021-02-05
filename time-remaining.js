@@ -7,8 +7,8 @@
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
 // @description	Forked from Breindahl#2660's Melvor TimeRemaining script v0.6.2.2., originally developed by Breindahl#2660, Xhaf#6478 and Visua#9999
 // @author		GMiclotte
-// @match        https://*.melvoridle.com/*
-// @exclude      https://wiki.melvoridle.com*
+// @match       https://*.melvoridle.com/*
+// @exclude     https://wiki.melvoridle.com*
 // @noframes
 // @grant		none
 // ==/UserScript==
@@ -40,7 +40,7 @@ window.ETASettings = {
     DING_LEVEL: true,
     DING_MASTERY: true,
     DING_POOL: true,
-    //
+    // change the ding sound level
     DING_VOLUME: 0.1,
     /*
         targets
@@ -99,6 +99,9 @@ window.ETASettings = {
     },
     getTargetPool: (skillID, currentPool) => {
         return ETASettings.getTarget(currentPool, ETASettings.GLOBAL_TARGET_POOL, ETASettings.TARGET_POOL[skillID], 100);
+    },
+    getTargetVolume: (skillID, currentVolume) => {
+        return ETASettings.getTarget(currentVolume, ETASettings.DING_VOLUME[skillID], .01);
     },
 
     /*
@@ -190,6 +193,7 @@ ETA.addGlobalTargetInputs = () => {
         {id: 'LEVEL', label: 'Global level targets', defaultValue: [99]},
         {id: 'MASTERY', label: 'Global mastery targets', defaultValue: [99]},
         {id: 'POOL', label: 'Global pool targets (%)', defaultValue: [100]},
+        {id: 'VOLUME', label: 'Ding Volume', defaultValue: [.01]},
     ].forEach(target => {
         const globalKey = 'GLOBAL_TARGET_' + target.id;
         ETA.globalTargetsCard.addNumberArrayInput(
