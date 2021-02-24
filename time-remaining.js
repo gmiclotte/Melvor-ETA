@@ -7,8 +7,8 @@
 // @description The last part of the version number is the most recent version of Melvor that was tested with this script. More recent versions might break the script.
 // @description	Forked from Breindahl#2660's Melvor TimeRemaining script v0.6.2.2., originally developed by Breindahl#2660, Xhaf#6478 and Visua#9999
 // @author		GMiclotte
-// @match        https://*.melvoridle.com/*
-// @exclude      https://wiki.melvoridle.com*
+// @match       https://*.melvoridle.com/*
+// @exclude     https://wiki.melvoridle.com*
 // @noframes
 // @grant		none
 // ==/UserScript==
@@ -43,6 +43,8 @@ window.ETASettings = {
     /*
         targets
      */
+    // change the ding sound level
+    DING_VOLUME: 0.1,
     // Default global target level / mastery / pool% is 99 / 99 / 100
     GLOBAL_TARGET_LEVEL: 99,
     GLOBAL_TARGET_MASTERY: 99,
@@ -268,14 +270,14 @@ ETA.taskComplete = function () {
             notifyPlayer(last.skillID, currentTime.msg, "danger");
             ETA.log(currentTime.msg);
             let ding = new Audio("https://www.myinstants.com/media/sounds/ding-sound-effect.mp3");
-            ding.volume = 0.1;
+            ding.volume = ETASettings.DING_VOLUME;
             ding.play();
             return;
         }
     }
 }
 
-ETA.time = (ding, target, time, current, msg) => {
+ETA.time = (ding, target, current, msg) => {
     return {ding: ding, target: target, current: current, msg: msg};
 };
 
