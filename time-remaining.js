@@ -453,6 +453,8 @@ function script() {
 
     // data
     ETA.insigniaModifier = 1 - items[CONSTANTS.item.Clue_Chasers_Insignia].increasedItemChance / 100;
+    // (25 - 10) / 100 = 0.15
+    ETA.rhaelyxChargePreservation = (items[CONSTANTS.item.Crown_of_Rhaelyx].chanceToPreserve - items[CONSTANTS.item.Crown_of_Rhaelyx].baseChanceToPreserve) / 100;
 
     // lvlToXp cache
     ETA.lvlToXp = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
@@ -635,6 +637,7 @@ function getQtyOfItem(itemID) {
     return bank[bankID].qty;
 }
 
+// help function for time display
 function appendName(t, name, isShortClock) {
     if (t === 0) {
         return "";
@@ -783,21 +786,55 @@ function getPercentageInLevel(currentXp, finalXp, type, bar = false) {
     }
 }
 
-//Return the chanceToKeep for any mastery EXp
-function masteryPreservation(initial, masteryEXp, chanceToRefTable) {
+//Return the preservation for any mastery and pool
+function masteryPreservation(initial, masteryXp, poolXp) {
     if (!initial.hasMastery) {
         return 0;
     }
-    let chanceTo = chanceToRefTable;
-    if (masteryEXp >= initial.masteryLim[0]) {
-        for (let i = 0; i < initial.masteryLim.length; i++) {
-            if (initial.masteryLim[i] <= masteryEXp && masteryEXp < initial.masteryLim[i + 1]) {
-                return chanceTo[i + 1];
-            }
-        }
-    } else {
-        return chanceTo[0];
+    const masteryLevel = convertXpToLvl(masteryXp);
+    let preservationChance = 0;
+    switch (initial.skillID) {
+        case CONSTANTS.skill.Cooking:
+            if (poolXp >= initial.poolLim[2])
+                preservationChance += 10;
+            break;
+        case CONSTANTS.skill.Smithing:
+            let smithingMasteryLevel = masteryLevel;
+            if (smithingMasteryLevel >= 99) preservationChance += 30;
+            else if (smithingMasteryLevel >= 80) preservationChance += 20;
+            else if (smithingMasteryLevel >= 60) preservationChance += 15;
+            else if (smithingMasteryLevel >= 40) preservationChance += 10;
+            else if (smithingMasteryLevel >= 20) preservationChance += 5;
+            if (poolXp >= initial.poolLim[1])
+                preservationChance += 5;
+            if (poolXp >= initial.poolLim[2])
+                preservationChance += 5;
+            break;
+        case CONSTANTS.skill.Fletching:
+            preservationChance += 0.2 * masteryLevel - 0.2;
+            if (masteryLevel >= 99)
+                preservationChance += 5;
+            break;
+        case CONSTANTS.skill.Crafting:
+            preservationChance += 0.2 * masteryLevel - 0.2;
+            if (masteryLevel >= 99)
+                preservationChance += 5;
+            if (poolXp >= initial.poolLim[1])
+                preservationChance += 5;
+            break;
+        case CONSTANTS.skill.Runecrafting:
+            if (poolXp >= initial.poolLim[2])
+                preservationChance += 10;
+            break;
+        case CONSTANTS.skill.Herblore:
+            preservationChance += 0.2 * masteryLevel - 0.2;
+            if (masteryLevel >= 99)
+                preservationChance += 5;
+            if (poolXp >= initial.poolLim[2])
+                preservationChance += 5;
+            break;
     }
+    return preservationChance;
 }
 
 // Adjust interval based on unlocked bonuses
@@ -896,30 +933,6 @@ function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) 
             break;
     }
     return adjustedInterval;
-}
-
-// Adjust preservation chance based on unlocked bonuses
-function poolPreservation(initial, poolXp) {
-    let preservation = 0;
-    switch (initial.skillID) {
-        case CONSTANTS.skill.Smithing:
-            if (poolXp >= initial.poolLim[1]) preservation += 5;
-            if (poolXp >= initial.poolLim[2]) preservation += 5;
-            break;
-
-        case CONSTANTS.skill.Runecrafting:
-            if (poolXp >= initial.poolLim[2]) preservation += 10;
-            break;
-
-        case CONSTANTS.skill.Herblore:
-            if (poolXp >= initial.poolLim[2]) preservation += 5;
-            break;
-
-        case CONSTANTS.skill.Cooking:
-            if (poolXp >= initial.poolLim[2]) preservation += 10;
-            break;
-    }
-    return preservation / 100;
 }
 
 // Adjust skill Xp based on unlocked bonuses
@@ -1033,7 +1046,7 @@ function initialVariables(skillID, checkTaskComplete) {
         targetPool: 0,
         targetPoolXp: 0,
         poolLim: [], // Xp need to reach next pool checkpoint
-        chanceToKeep: [],
+        staticPreservation: 0,
         maxPoolXp: 0,
         tokens: 0,
         poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
@@ -1049,10 +1062,13 @@ function initialVariables(skillID, checkTaskComplete) {
         initial.masteryLimLevel = Array.from({length: 98}, (_, i) => i + 2);
     }
     initial.masteryLimLevel.push(Infinity);
-    // Chance to keep at breakpoints - default 0.2% per level
-    if (initial.hasMastery) {
-        initial.chanceToKeep = Array.from({length: 99}, (_, i) => i * 0.002);
-        initial.chanceToKeep[98] += 0.05; // Level 99 Bonus
+    // static preservation
+    initial.staticPreservation += playerModifiers.increasedGlobalPreservationChance;
+    initial.staticPreservation -= playerModifiers.decreasedGlobalPreservationChance;
+    initial.staticPreservation += getTotalFromModifierArray("increasedSkillPreservationChance", skillID);
+    initial.staticPreservation -= getTotalFromModifierArray("decreasedSkillPreservationChance", skillID)
+    if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && initial.hasMastery && !initial.isGathering) {
+        initial.staticPreservation += items[CONSTANTS.item.Crown_of_Rhaelyx].baseChanceToPreserve / 100; // Add base 10% chance
     }
     return initial;
 }
@@ -1075,8 +1091,6 @@ function configureSmithing(initial) {
         initial.skillReq.push(req);
     }
     initial.masteryLimLevel = [20, 40, 60, 80, 99, Infinity]; // Smithing Mastery Limits
-    initial.chanceToKeep = [0, 0.05, 0.10, 0.15, 0.20, 0.30]; //Smithing Mastery bonus percentages
-    if (petUnlocked[5]) initial.chanceToKeep = initial.chanceToKeep.map(n => n + PETS[5].chance / 100); // Add Pet Bonus
     return initial;
 }
 
@@ -1105,12 +1119,6 @@ function configureRunecrafting(initial) {
         initial.skillReq.push(i);
     }
     initial.masteryLimLevel = [99, Infinity]; // Runecrafting has no Mastery bonus
-    initial.chanceToKeep = [0, 0]; //Thus no chance to keep
-    if (skillCapeEquipped(CONSTANTS.item.Runecrafting_Skillcape)) {
-        initial.chanceToKeep[0] += 0.35;
-    }
-    if (petUnlocked[10]) initial.chanceToKeep[0] += PETS[10].chance / 100;
-    initial.chanceToKeep[1] = initial.chanceToKeep[0];
     return initial;
 }
 
@@ -1138,7 +1146,6 @@ function configureCooking(initial) {
     initial.skillInterval = 3000;
     initial.skillReq = [{id: initial.itemID, qty: 1}];
     initial.masteryLimLevel = [99, Infinity]; //Cooking has no Mastery bonus
-    initial.chanceToKeep = [0, 0]; //Thus no chance to keep
     initial.itemID = items[initial.itemID].cookedItemID;
     return initial;
 }
@@ -1148,7 +1155,6 @@ function configureFiremaking(initial) {
     initial.itemXp = logsData[initial.currentAction].xp * (1 + bonfireBonus / 100);
     initial.skillInterval = logsData[initial.currentAction].interval;
     initial.skillReq = [{id: initial.itemID, qty: 1}];
-    initial.chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
     return initial;
 }
 
@@ -1203,14 +1209,12 @@ function configureMagic(initial) {
         }
     }
     initial.masteryLimLevel = [Infinity]; //AltMagic has no Mastery bonus
-    initial.chanceToKeep = [0]; //Thus no chance to keep
     initial.itemXp = ALTMAGIC[initial.currentAction].magicXP;
     return initial;
 }
 
 function configureGathering(initial) {
     initial.skillReq = [];
-    initial.chanceToKeep = initial.chanceToKeep.map(_ => 0); // No chance to keep for gathering
     initial.recordCraft = 0;
     initial.masteryID = initial.currentAction;
     return initial;
@@ -1429,9 +1433,6 @@ function currentVariables(initial, resources) {
     }
     // Check for Crown of Rhaelyx
     if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && initial.hasMastery && !initial.isGathering) {
-        for (let i = 0; i < initial.masteryLimLevel.length; i++) {
-            initial.chanceToKeep[i] += 0.10; // Add base 10% chance
-        }
         let rhaelyxCharge = getQtyOfItem(CONSTANTS.item.Charge_Stone_of_Rhaelyx);
         current.chargeUses = rhaelyxCharge * 1000; // average crafts per Rhaelyx Charge Stone
     }
@@ -1463,10 +1464,9 @@ function syncSecondary(current) {
 }
 
 function actionsToBreakpoint(initial, current, noResources = false) {
-    const rhaelyxChargePreservation = 0.15;
-
     // Adjustments
-    const totalChanceToUse = 1 - masteryPreservation(initial, current.masteryXp, initial.chanceToKeep) - poolPreservation(initial, current.poolXp);
+    const totalChanceToUse = 1 - initial.staticPreservation / 100
+        - masteryPreservation(initial, current.masteryXp, current.poolXp);
     const currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
     const averageActionTime = intervalRespawnAdjustment(initial, currentInterval, current.poolXp, current.masteryXp);
 
@@ -1529,9 +1529,9 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     if (!noResources) {
         // estimate amount of actions possible with remaining resources
         // number of actions with rhaelyx charges
-        resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - rhaelyxChargePreservation));
+        resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - ETA.rhaelyxChargePreservation));
         // remaining resources
-        const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation));
+        const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - ETA.rhaelyxChargePreservation));
         // add number of actions without rhaelyx charges
         resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
         expectedActions = Math.min(expectedActions, resourceActions);
@@ -1552,10 +1552,10 @@ function actionsToBreakpoint(initial, current, noResources = false) {
             let resUsed = 0;
             if (expectedActions < current.chargeUses) {
                 // won't run out of charges yet
-                resUsed = expectedActions * (totalChanceToUse - rhaelyxChargePreservation);
+                resUsed = expectedActions * (totalChanceToUse - ETA.rhaelyxChargePreservation);
             } else {
                 // first use charges
-                resUsed = current.chargeUses * (totalChanceToUse - rhaelyxChargePreservation);
+                resUsed = current.chargeUses * (totalChanceToUse - ETA.rhaelyxChargePreservation);
                 // remaining actions are without charges
                 resUsed += (expectedActions - current.chargeUses) * totalChanceToUse;
             }
