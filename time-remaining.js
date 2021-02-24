@@ -926,6 +926,14 @@ function poolPreservation(initial, poolXp) {
 // Adjust skill Xp based on unlocked bonuses
 function skillXpAdjustment(initial, poolXp, masteryXp) {
     let itemXp = initial.itemXp;
+    let staticXpBonus = initial.staticXpBonus;
+    switch (initial.skillID) {
+        case CONSTANTS.skill.Herblore:
+            if (poolXp >= initial.poolLim[1]) {
+                staticXpBonus += 0.03;
+            }
+            break;
+    }
     let xpMultiplier = 1;
     switch (initial.skillID) {
         case CONSTANTS.skill.Runecrafting:
@@ -962,7 +970,7 @@ function skillXpAdjustment(initial, poolXp, masteryXp) {
             break;
         }
     }
-    return itemXp * xpMultiplier;
+    return itemXp * staticXpBonus * xpMultiplier;
 }
 
 // Calculate total number of unlocked items for skill based on current skill level
@@ -994,6 +1002,7 @@ function initialVariables(skillID, checkTaskComplete) {
         checkTaskComplete: checkTaskComplete,
         itemID: undefined,
         itemXp: 0,
+        staticXpBonus: 1,
         skillInterval: 0,
         masteryID: 0,
         skillReq: [], // Needed items for craft and their quantities
@@ -1135,9 +1144,6 @@ function configureHerblore(initial) {
 function configureCooking(initial) {
     initial.itemID = initial.currentAction;
     initial.itemXp = items[initial.itemID].cookingXP;
-    if (currentCookingFire > 0) {
-        initial.itemXp *= (1 + cookingFireData[currentCookingFire - 1].bonusXP / 100);
-    }
     initial.skillInterval = 3000;
     if (godUpgrade[3]) initial.skillInterval *= 0.8;
     initial.skillReq = [{id: initial.itemID, qty: 1}];
@@ -1783,8 +1789,8 @@ function setupTimeRemaining(initial) {
         initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
     }
 
-    // Apply itemXp Bonuses from gear and pets
-    initial.itemXp = addXPBonuses(initial.skillID, initial.itemXp, true);
+    // Get itemXp Bonuses from gear and pets
+    initial.staticXpBonus = getStaticXPBonuses(initial.skillID);
 
     // Populate masteryLim from masteryLimLevel
     for (let i = 0; i < initial.masteryLimLevel.length; i++) {
@@ -1812,6 +1818,14 @@ function setupTimeRemaining(initial) {
         }
     }
     return initial;
+}
+
+function getStaticXPBonuses(skill) {
+    let xpMultiplier = 1;
+    xpMultiplier += getTotalFromModifierArray("increasedSkillXP", skill) / 100;
+    xpMultiplier -= getTotalFromModifierArray("decreasedSkillXP", skill) / 100;
+    xpMultiplier += (playerModifiers.increasedGlobalSkillXP - playerModifiers.decreasedGlobalSkillXP) / 100;
+    return xpMultiplier;
 }
 
 // Main function
