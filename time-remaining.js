@@ -802,38 +802,45 @@ function masteryPreservation(initial, masteryEXp, chanceToRefTable) {
 
 // Adjust interval based on unlocked bonuses
 function intervalAdjustment(initial, poolXp, masteryXp) {
-    let adjustedInterval = initial.skillInterval;
+    let flatReduction = initial.flatIntervalReduction;
+    let percentReduction = initial.percentIntervalReduction;
     switch (initial.skillID) {
-        case CONSTANTS.skill.Firemaking:
-            if (poolXp >= initial.poolLim[1]) {
-                adjustedInterval *= 0.9;
-            }
-            adjustedInterval *= 1 - convertXpToLvl(masteryXp) * 0.001;
-            break;
-
-        case CONSTANTS.skill.Crafting:
-        case CONSTANTS.skill.Mining:
-            // pool bonus speed
-            if (poolXp >= initial.poolLim[2]) {
-                adjustedInterval -= 200;
-            }
-            break;
-
-        case CONSTANTS.skill.Fletching:
-            if (poolXp >= initial.poolLim[3]) {
-                adjustedInterval -= 200;
-            }
-            break;
-
         case CONSTANTS.skill.Woodcutting:
             if (convertXpToLvl(masteryXp) >= 99) {
-                adjustedInterval -= 200;
+                flatReduction += 200;
             }
+            break;
+        case CONSTANTS.skill.Firemaking:
+            if (poolXp >= initial.poolLim[1]) {
+                percentReduction += 10;
+            }
+            percentReduction += convertXpToLvl(masteryXp) * 0.1;
+            break;
+        case CONSTANTS.skill.Mining:
+        case CONSTANTS.skill.Crafting:
+            // pool bonus speed
+            if (poolXp >= initial.poolLim[2]) {
+                flatReduction += 200;
+            }
+            break;
+        case CONSTANTS.skill.Fletching:
+            if (poolXp >= initial.poolLim[3]) {
+                flatReduction += 200;
+            }
+            break;
+        case CONSTANTS.skill.Agility:
+            percentReduction += 3 * Math.floor(convertXpToLvl(masteryXp) / 10);
+            break;
     }
+    ETA.log(initial.skillInterval, percentReduction, flatReduction)
+    let adjustedInterval = initial.skillInterval;
+    adjustedInterval *= 1 - percentReduction / 100;
+    adjustedInterval -= flatReduction;
     return adjustedInterval;
 }
 
-// Adjust interval based on unlocked bonuses
+// Adjust interval based on down time
+// This only applies to Mining, Thieving and Agility
 function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) {
     let adjustedInterval = currentInterval;
     switch (initial.skillID) {
@@ -996,6 +1003,8 @@ function initialVariables(skillID, checkTaskComplete) {
         itemXp: 0,
         staticXpBonus: 1,
         skillInterval: 0,
+        flatIntervalReduction: 0,
+        percentIntervalReduction: 0,
         masteryID: 0,
         skillReq: [], // Needed items for craft and their quantities
         recordCraft: Infinity, // Amount of craftable items for limiting resource
@@ -1058,7 +1067,6 @@ function configureSmithing(initial) {
     initial.itemID = smithingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].smithingXP;
     initial.skillInterval = 2000;
-    if (godUpgrade[3]) initial.skillInterval *= 0.8;
     for (let i of items[initial.itemID].smithReq) {
         const req = {...i};
         if (req.id === CONSTANTS.item.Coal_Ore && skillCapeEquipped(CONSTANTS.item.Smithing_Skillcape)) {
@@ -1076,8 +1084,6 @@ function configureFletching(initial) {
     initial.itemID = fletchingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].fletchingXP;
     initial.skillInterval = 2000;
-    if (godUpgrade[0]) initial.skillInterval *= 0.8;
-    if (petUnlocked[8]) initial.skillInterval -= 200;
     for (let i of items[initial.itemID].fletchReq) {
         initial.skillReq.push(i);
     }
@@ -1095,7 +1101,6 @@ function configureRunecrafting(initial) {
     initial.itemID = runecraftingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].runecraftingXP;
     initial.skillInterval = 2000;
-    if (godUpgrade[1]) initial.skillInterval *= 0.8;
     for (let i of items[initial.itemID].runecraftReq) {
         initial.skillReq.push(i);
     }
@@ -1113,11 +1118,6 @@ function configureCrafting(initial) {
     initial.itemID = craftingItems[initial.currentAction].itemID;
     initial.itemXp = items[initial.itemID].craftingXP;
     initial.skillInterval = 3000;
-    if (godUpgrade[0]) initial.skillInterval *= 0.8;
-    if (skillCapeEquipped(CONSTANTS.item.Crafting_Skillcape)) {
-        initial.skillInterval -= 500;
-    }
-    if (petUnlocked[9]) initial.skillInterval -= 200;
     items[initial.itemID].craftReq.forEach(i => initial.skillReq.push(i));
     return initial;
 }
@@ -1126,7 +1126,6 @@ function configureHerblore(initial) {
     initial.itemID = herbloreItemData[initial.currentAction].itemID[getHerbloreTier(initial.currentAction)];
     initial.itemXp = herbloreItemData[initial.currentAction].herbloreXP;
     initial.skillInterval = 2000;
-    if (godUpgrade[1]) initial.skillInterval *= 0.8;
     for (let i of items[initial.itemID].herbloreReq) {
         initial.skillReq.push(i);
     }
@@ -1137,7 +1136,6 @@ function configureCooking(initial) {
     initial.itemID = initial.currentAction;
     initial.itemXp = items[initial.itemID].cookingXP;
     initial.skillInterval = 3000;
-    if (godUpgrade[3]) initial.skillInterval *= 0.8;
     initial.skillReq = [{id: initial.itemID, qty: 1}];
     initial.masteryLimLevel = [99, Infinity]; //Cooking has no Mastery bonus
     initial.chanceToKeep = [0, 0]; //Thus no chance to keep
@@ -1149,7 +1147,6 @@ function configureFiremaking(initial) {
     initial.itemID = initial.currentAction;
     initial.itemXp = logsData[initial.currentAction].xp * (1 + bonfireBonus / 100);
     initial.skillInterval = logsData[initial.currentAction].interval;
-    if (godUpgrade[3]) initial.skillInterval *= 0.8;
     initial.skillReq = [{id: initial.itemID, qty: 1}];
     initial.chanceToKeep.fill(0); // Firemaking Mastery does not provide preservation chance
     return initial;
@@ -1223,8 +1220,6 @@ function configureMining(initial) {
     initial.itemID = miningData[initial.currentAction].ore;
     initial.itemXp = items[initial.itemID].miningXP;
     initial.skillInterval = 3000;
-    if (godUpgrade[2]) initial.skillInterval *= 0.8;
-    initial.skillInterval *= 1 - pickaxeBonusSpeed[currentPickaxe] / 100;
     return configureGathering(initial);
 }
 
@@ -1232,9 +1227,6 @@ function configureThieving(initial) {
     initial.itemID = undefined;
     initial.itemXp = thievingNPC[initial.currentAction].xp;
     initial.skillInterval = 3000;
-    if (skillCapeEquipped(CONSTANTS.item.Thieving_Skillcape)) {
-        initial.skillInterval -= 500;
-    }
     return configureGathering(initial);
 }
 
@@ -1242,13 +1234,6 @@ function configureWoodcutting(initial) {
     initial.itemID = initial.currentAction;
     initial.itemXp = trees[initial.itemID].xp;
     initial.skillInterval = trees[initial.itemID].interval;
-    if (godUpgrade[2]) {
-        initial.skillInterval *= 0.8;
-    }
-    initial.skillInterval *= 1 - axeBonusSpeed[currentAxe] / 100;
-    if (skillCapeEquipped(CONSTANTS.item.Woodcutting_Skillcape)) {
-        initial.skillInterval /= 2;
-    }
     return configureGathering(initial);
 }
 
@@ -1265,7 +1250,6 @@ function configureFishing(initial) {
     if (equippedItems.includes(CONSTANTS.item.Amulet_of_Fishing)) {
         fishingAmuletBonus = 1 - items[CONSTANTS.item.Amulet_of_Fishing].fishingSpeedBonus / 100;
     }
-    initial.skillInterval = Math.floor(initial.skillInterval * fishingAmuletBonus * (1 - rodBonusSpeed[currentRod] / 100));
     initial = configureGathering(initial);
     // correctly set masteryID
     initial.masteryID = fishingAreas[initial.currentAction].fish[initial.fishID];
@@ -1760,6 +1744,11 @@ function setupTimeRemaining(initial) {
             initial = configureFishing(initial);
             break;
     }
+    // configure interval reductions
+    initial.percentIntervalReduction += getTotalFromModifierArray("decreasedSkillIntervalPercent", initial.skillID);
+    initial.percentIntervalReduction -= getTotalFromModifierArray("increasedSkillIntervalPercent", initial.skillID);
+    initial.flatIntervalReduction += getTotalFromModifierArray("decreasedSkillInterval", initial.skillID);
+    initial.flatIntervalReduction -= getTotalFromModifierArray("increasedSkillInterval", initial.skillID);
     // Configure initial mastery values for all skills with masteries
     if (initial.hasMastery) {
         // mastery
