@@ -627,20 +627,12 @@ function script() {
 //internal methods//
 ////////////////////
 // Function to get unformatted number for Qty
-window.bankCache = {};
-
 function getQtyOfItem(itemID) {
-    const cache = window.bankCache[itemID];
-    if (cache !== undefined && bank[cache] !== undefined && bank[cache].id === itemID) {
-        return bank[cache].qty;
+    const bankID = getBankId(itemID);
+    if (bankID === -1) {
+        return 0;
     }
-    for (let i = 0; i < bank.length; i++) {
-        if (bank[i].id === itemID) {
-            window.bankCache[itemID] = i;
-            return bank[i].qty;
-        }
-    }
-    return 0;
+    return bank[bankID].qty;
 }
 
 function appendName(t, name, isShortClock) {
