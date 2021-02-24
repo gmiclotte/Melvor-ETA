@@ -1831,12 +1831,12 @@ function timeRemaining(initial) {
         // Set global variables to track completion
         let times = [];
         if (!initial.isGathering) {
-            times.push(ETA.time(ETASettings.DING_RESOURCES, 0, ms.resources, -ms.resources, "Processing finished."));
+            times.push(ETA.time(ETASettings.DING_RESOURCES, 0, -ms.resources, "Processing finished."));
         }
-        times.push(ETA.time(ETASettings.DING_LEVEL, initial.targetLevel, ms.skill, convertXpToLvl(initial.skillXp), "Target level reached."));
+        times.push(ETA.time(ETASettings.DING_LEVEL, initial.targetLevel, convertXpToLvl(initial.skillXp), "Target level reached."));
         if (initial.hasMastery) {
-            times.push(ETA.time(ETASettings.DING_MASTERY, initial.targetMastery, ms.mastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
-            times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, ms.pool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
+            times.push(ETA.time(ETASettings.DING_MASTERY, initial.targetMastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
+            times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
         }
         ETA.setTimeLeft(initial, times);
         if (initial.checkTaskComplete) {
