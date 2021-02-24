@@ -451,6 +451,9 @@ function script() {
     // Loading script
     ETA.log('loading...');
 
+    // data
+    ETA.insigniaModifier = 1 - items[CONSTANTS.item.Clue_Chasers_Insignia].increasedItemChance / 100;
+
     // lvlToXp cache
     ETA.lvlToXp = Array.from({length: 200}, (_, i) => exp.level_to_xp(i));
 
@@ -977,7 +980,7 @@ function calcTotalUnlockedItems(skillID, skillXp) {
 function actionsPerToken(skillID, skillXp, masteryXp) {
     let actions = 20000 / calcTotalUnlockedItems(skillID, skillXp);
     if (equippedItems.includes(CONSTANTS.item.Clue_Chasers_Insignia)) {
-        actions *= 0.9;
+        actions *= ETA.insigniaModifier;
     }
     if (skillID === CONSTANTS.skill.Cooking) {
         actions /= 1 - calcBurnChance(masteryXp);
