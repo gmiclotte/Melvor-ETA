@@ -391,11 +391,8 @@ ETA.timeRemainingWrapper = function (skillID, checkTaskComplete) {
             if (currentlyCutting === 2) {
                 // init first tree
                 let initial = initialVariables(skillID, checkTaskComplete);
-                initial.currentAction = currentTrees[0];
-                // configure secondary tree
-                initial.secondary = initialVariables(skillID, checkTaskComplete);
-                initial.secondary.currentAction = currentTrees[1];
-                initial.secondary = setupTimeRemaining(initial.secondary);
+                initial.currentAction = currentTrees;
+                initial.multiple = ETA.PARALLEL;
                 // run time remaining
                 asyncTimeRemaining(initial);
             } else {
@@ -450,6 +447,11 @@ function asyncTimeRemaining(initial) {
 function script() {
     // Loading script
     ETA.log('loading...');
+
+    // constants
+    ETA.SINGLE = 0;
+    ETA.PARALLEL = 1;
+    ETA.SEQUENTIAL = 2;
 
     // data
     ETA.insigniaModifier = 1 - items[CONSTANTS.item.Clue_Chasers_Insignia].increasedItemChance / 100;
@@ -838,7 +840,7 @@ function masteryPreservation(initial, masteryXp, poolXp) {
 }
 
 // Adjust interval based on unlocked bonuses
-function intervalAdjustment(initial, poolXp, masteryXp) {
+function intervalAdjustment(initial, poolXp, masteryXp, skillInterval) {
     let flatReduction = initial.flatIntervalReduction;
     let percentReduction = initial.percentIntervalReduction;
     switch (initial.skillID) {
@@ -869,8 +871,7 @@ function intervalAdjustment(initial, poolXp, masteryXp) {
             percentReduction += 3 * Math.floor(convertXpToLvl(masteryXp) / 10);
             break;
     }
-    ETA.log(initial.skillInterval, percentReduction, flatReduction)
-    let adjustedInterval = initial.skillInterval;
+    let adjustedInterval = skillInterval;
     adjustedInterval *= 1 - percentReduction / 100;
     adjustedInterval -= flatReduction;
     return adjustedInterval;
@@ -920,8 +921,8 @@ function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) 
             if (successRate > npc.maxSuccess && convertXpToLvl(masteryXp) < 99) {
                 successRate = npc.maxSuccess;
             }
-            if (glovesTracker[CONSTANTS.shop.gloves.Thieving].isActive
-                && glovesTracker[CONSTANTS.shop.gloves.Thieving].remainingActions > 0 // TODO: handle charge use
+            if (glovesTracker[CONSTANTS.shop.gloves.Thieving_Gloves].isActive
+                && glovesTracker[CONSTANTS.shop.gloves.Thieving_Gloves].remainingActions > 0 // TODO: handle charge use
                 && equippedItems[CONSTANTS.equipmentSlot.Gloves] === CONSTANTS.item.Thieving_Gloves) {
                 successRate += 10;
             }
@@ -936,8 +937,7 @@ function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp) 
 }
 
 // Adjust skill Xp based on unlocked bonuses
-function skillXpAdjustment(initial, poolXp, masteryXp) {
-    let itemXp = initial.itemXp;
+function skillXpAdjustment(initial, itemXp, itemID, poolXp, masteryXp) {
     let staticXpBonus = initial.staticXpBonus;
     switch (initial.skillID) {
         case CONSTANTS.skill.Herblore:
@@ -949,7 +949,7 @@ function skillXpAdjustment(initial, poolXp, masteryXp) {
     let xpMultiplier = 1;
     switch (initial.skillID) {
         case CONSTANTS.skill.Runecrafting:
-            if (poolXp >= initial.poolLim[1] && items[initial.itemID].type === "Rune") {
+            if (poolXp >= initial.poolLim[1] && items[itemID].type === "Rune") {
                 xpMultiplier += 1.5;
             }
             break;
@@ -974,8 +974,8 @@ function skillXpAdjustment(initial, poolXp, masteryXp) {
         }
 
         case CONSTANTS.skill.Smithing: {
-            if (glovesTracker[CONSTANTS.shop.gloves.Smithing].isActive
-                && glovesTracker[CONSTANTS.shop.gloves.Smithing].remainingActions > 0 // TODO: handle charge use
+            if (glovesTracker[CONSTANTS.shop.gloves.Smithing_Gloves].isActive
+                && glovesTracker[CONSTANTS.shop.gloves.Smithing_Gloves].remainingActions > 0 // TODO: handle charge use
                 && equippedItems[CONSTANTS.equipmentSlot.Gloves] === CONSTANTS.item.Smithing_Gloves) {
                 xpMultiplier += 0.5;
             }
@@ -1012,22 +1012,21 @@ function initialVariables(skillID, checkTaskComplete) {
     let initial = {
         skillID: skillID,
         checkTaskComplete: checkTaskComplete,
-        itemID: undefined,
-        itemXp: 0,
         staticXpBonus: 1,
-        skillInterval: 0,
         flatIntervalReduction: 0,
         percentIntervalReduction: 0,
-        masteryID: 0,
         skillReq: [], // Needed items for craft and their quantities
         recordCraft: Infinity, // Amount of craftable items for limiting resource
         hasMastery: skillID !== CONSTANTS.skill.Magic, // magic has no mastery, so we often check this
-        isMainAction: true,
+        multiple: ETA.SINGLE,
         // gathering skills are treated differently, so we often check this
-        isGathering: skillID === CONSTANTS.skill.Woodcutting
-            || skillID === CONSTANTS.skill.Fishing
-            || skillID === CONSTANTS.skill.Mining
-            || skillID === CONSTANTS.skill.Thieving,
+        isGathering: [
+            CONSTANTS.skill.Woodcutting,
+            CONSTANTS.skill.Fishing,
+            CONSTANTS.skill.Mining,
+            CONSTANTS.skill.Thieving,
+            CONSTANTS.skill.Agility
+        ].includes(skillID),
         // Generate default values for script
         // skill
         skillXp: skillXP[skillID],
@@ -1035,9 +1034,6 @@ function initialVariables(skillID, checkTaskComplete) {
         skillLim: [], // Xp needed to reach next level
         skillLimLevel: [],
         // mastery
-        masteryXp: 0,
-        targetMastery: 0,
-        targetMasteryXp: 0,
         masteryLim: [], // Xp needed to reach next level
         masteryLimLevel: [0],
         totalMasteryLevel: 0,
@@ -1050,6 +1046,14 @@ function initialVariables(skillID, checkTaskComplete) {
         maxPoolXp: 0,
         tokens: 0,
         poolLimCheckpoints: [10, 25, 50, 95, 100, Infinity], //Breakpoints for mastery pool bonuses followed by Infinity
+        //////////////
+        //DEPRECATED//
+        //////////////
+        masteryID: 0,
+        masteryXp: 0,
+        skillInterval: 0,
+        itemID: undefined,
+        itemXp: 0,
     }
     // skill
     initial.targetXp = convertLvlToXp(initial.targetLevel);
@@ -1235,9 +1239,14 @@ function configureThieving(initial) {
 }
 
 function configureWoodcutting(initial) {
-    initial.itemID = initial.currentAction;
-    initial.itemXp = trees[initial.itemID].xp;
-    initial.skillInterval = trees[initial.itemID].interval;
+    initial.actions = initial.currentAction.map(x => {
+        return {
+            itemID: x,
+            itemXp: trees[x].xp,
+            skillInterval: trees[x].interval,
+            masteryID: x,
+        };
+    });
     return configureGathering(initial);
 }
 
@@ -1261,10 +1270,10 @@ function configureFishing(initial) {
 }
 
 // Calculate mastery xp based on unlocked bonuses
-function calcMasteryXpToAdd(initial, current, timePerAction) {
+function calcMasteryXpToAdd(initial, totalMasteryLevel, skillXp, masteryXp, poolXp, timePerAction, itemID) {
     switch (initial.skillID) {
         case CONSTANTS.skill.Firemaking:
-            timePerAction = logsData[initial.itemID].interval * 0.6;
+            timePerAction = logsData[itemID].interval * 0.6;
             break;
         case CONSTANTS.skill.Cooking:
             timePerAction = 2400;
@@ -1288,29 +1297,29 @@ function calcMasteryXpToAdd(initial, current, timePerAction) {
     let xpModifier = 1;
     // General Mastery Xp formula
     let xpToAdd = (
-        (calcTotalUnlockedItems(initial.skillID, current.skillXp) * current.totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID)
-        + convertXpToLvl(current.masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)
+        (calcTotalUnlockedItems(initial.skillID, skillXp) * totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID)
+        + convertXpToLvl(masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)
     ) * (timePerAction / 1000) / 2;
     // Skill specific mastery pool modifier
-    if (current.poolXp >= initial.poolLim[0]) {
+    if (poolXp >= initial.poolLim[0]) {
         xpModifier += 0.05;
     }
     // Firemaking pool and log modifiers
     if (initial.skillID === CONSTANTS.skill.Firemaking) {
         // If current skill is Firemaking, we need to apply mastery progression from actions and use updated poolXp values
-        if (current.poolXp >= initial.poolLim[3]) {
+        if (poolXp >= initial.poolLim[3]) {
             xpModifier += 0.05;
         }
         for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
             // The logs you are not burning
-            if (initial.masteryID !== i) {
+            if (initial.action[0].masteryID !== i) {
                 if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) {
                     xpModifier += 0.0025;
                 }
             }
         }
         // The log you are burning
-        if (convertXpToLvl(current.masteryXp) >= 99) {
+        if (convertXpToLvl(masteryXp) >= 99) {
             xpModifier += 0.0025;
         }
     } else {
@@ -1340,12 +1349,12 @@ function calcMasteryXpToAdd(initial, current, timePerAction) {
     }
     // BurnChance affects average mastery Xp
     if (initial.skillID === CONSTANTS.skill.Cooking) {
-        let burnChance = calcBurnChance(current.masteryXp);
+        let burnChance = calcBurnChance(masteryXp);
         xpToAdd *= (1 - burnChance);
     }
     // Fishing junk gives no mastery xp
     if (initial.skillID === CONSTANTS.skill.Fishing) {
-        let junkChance = calcJunkChance(initial, current.masteryXp, current.poolXp);
+        let junkChance = calcJunkChance(initial, masteryXp, poolXp);
         xpToAdd *= (1 - junkChance);
     }
     // return average mastery xp per action
@@ -1401,19 +1410,27 @@ function calcJunkChance(initial, masteryXp, poolXp) {
     return junkChance / 100;
 }
 
+function perAction(masteryXp, masteryTarget) {
+    return {
+        // mastery
+        masteryXp: masteryXp,
+        targetMasteryReached: masteryXp >= masteryTarget,
+        targetMasteryTime: 0,
+        targetMasteryResources: 0,
+        // estimated number of actions taken so far
+        actions: 0,
+    }
+}
+
 function currentVariables(initial, resources) {
     let current = {
+        actionCount: 0,
         sumTotalTime: 0,
         // skill
         skillXp: initial.skillXp,
         targetSkillReached: initial.skillXp >= initial.targetXp,
         targetSkillTime: 0,
         targetSkillResources: 0,
-        // mastery
-        masteryXp: initial.masteryXp,
-        targetMasteryReached: initial.masteryXp >= initial.targetMasteryXp,
-        targetMasteryTime: 0,
-        targetMasteryResources: 0,
         // pool
         poolXp: initial.poolXp,
         targetPoolReached: initial.poolXp >= initial.targetPoolXp,
@@ -1421,16 +1438,13 @@ function currentVariables(initial, resources) {
         targetPoolResources: 0,
         totalMasteryLevel: initial.totalMasteryLevel,
         // items
-        resources: resources,
         chargeUses: 0, // estimated remaining charge uses
         tokens: initial.tokens,
-        // estimated number of actions taken so far
-        actions: 0,
+        // stats per action
+        actions: initial.actions.map(x => perAction(x.masteryXp, x.masteryTarget)),
+        // available resources
+        resources: resources,
     };
-    // set secondary if it exists
-    if (initial.secondary !== undefined) {
-        current.secondary = currentVariables(initial.secondary, initial.secondary.recordCraft);
-    }
     // Check for Crown of Rhaelyx
     if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && initial.hasMastery && !initial.isGathering) {
         let rhaelyxCharge = getQtyOfItem(CONSTANTS.item.Charge_Stone_of_Rhaelyx);
@@ -1439,192 +1453,185 @@ function currentVariables(initial, resources) {
     return current;
 }
 
-function gainPerAction(initial, current, currentInterval) {
-    const gains = {
-        xpPerAction: skillXpAdjustment(initial, current.poolXp, current.masteryXp),
-        masteryXpPerAction: 0,
-        poolXpPerAction: 0,
-        tokensPerAction: 0,
-        tokenXpPerAction: 0,
-    };
-    if (initial.hasMastery) {
-        gains.masteryXpPerAction = calcMasteryXpToAdd(initial, current, currentInterval);
-        gains.poolXpPerAction = calcPoolXpToAdd(current.skillXp, gains.masteryXpPerAction);
-        gains.tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp, current.masteryXp);
-        gains.tokenXpPerAction = initial.maxPoolXp / 1000 * gains.tokensPerAction;
-    }
-    return gains
+function gainPerAction(initial, current, currentIntervals) {
+    return current.actions.map((x, i) => {
+        const gain = {
+            xpPerAction: skillXpAdjustment(initial, initial.actions[i].itemXp, initial.actions[i].itemID, current.poolXp, x.masteryXp),
+            masteryXpPerAction: 0,
+            poolXpPerAction: 0,
+            tokensPerAction: 0,
+            tokenXpPerAction: 0,
+        };
+
+        if (initial.hasMastery) {
+            gain.masteryXpPerAction = calcMasteryXpToAdd(initial, current.totalMasteryLevel, current.skillXp, x.masteryXp, current.poolXp, currentIntervals[i], initial.actions[i].itemID);
+            gain.poolXpPerAction = calcPoolXpToAdd(current.skillXp, gain.masteryXpPerAction);
+            gain.tokensPerAction = 1 / actionsPerToken(initial.skillID, current.skillXp, x.masteryXp);
+            gain.tokenXpPerAction = initial.maxPoolXp / 1000 * gain.tokensPerAction;
+        }
+        return gain;
+    });
 }
 
-function syncSecondary(current) {
-    current.secondary.skillXp = current.skillXp;
-    current.secondary.poolXp = current.poolXp;
-    current.secondary.totalMasteryLevel = current.totalMasteryLevel;
-    return current;
+// Actions until limit
+function getLim(lims, xp, max) {
+    const lim = lims.find(element => element > xp);
+    if (xp < max && max < lim) {
+        return Math.ceil(max);
+    }
+    return Math.ceil(lim);
 }
 
 function actionsToBreakpoint(initial, current, noResources = false) {
     // Adjustments
     const totalChanceToUse = 1 - initial.staticPreservation / 100
-        - masteryPreservation(initial, current.masteryXp, current.poolXp);
-    const currentInterval = intervalAdjustment(initial, current.poolXp, current.masteryXp);
-    const averageActionTime = intervalRespawnAdjustment(initial, currentInterval, current.poolXp, current.masteryXp);
+        - masteryPreservation(initial, current.actions[0].masteryXp, current.poolXp);
+    const currentIntervals = current.actions.map((x, i) => intervalAdjustment(initial, current.poolXp, x.masteryXp, initial.actions[i].skillInterval));
+    const averageActionTime = current.actions.map((x, i) => intervalRespawnAdjustment(initial, currentIntervals[i], current.poolXp, x.masteryXp));
 
     // Current Xp
-    let gains = gainPerAction(initial, current, currentInterval);
-    if (initial.secondary !== undefined) {
-        // sync xp, pool and total mastery
-        current = syncSecondary(current);
-        // compute gains per secondary action
-        const secondaryInterval = intervalAdjustment(initial.secondary, current.poolXp, current.masteryXp);
-        const secondaryGains = gainPerAction(initial.secondary, current.secondary, secondaryInterval);
-        // add average secondary gains to primary gains
-        [
-            'xpPerAction',
-            'poolXpPerAction',
-            'tokensPerAction',
-            'tokenXpPerAction',
-        ].forEach(x => {
-            gains[x] += secondaryGains[x] / secondaryInterval * currentInterval;
-        });
-        gains.secondaryMasteryXpPerPrimaryAction = secondaryGains.masteryXpPerAction / secondaryInterval * currentInterval;
-    }
-    if (ETASettings.USE_TOKENS) {
-        gains.poolXpPerAction += gains.tokenXpPerAction;
-    }
+    let gains = gainPerAction(initial, current, currentIntervals);
 
-    // Actions until limit
-    getLim = (lims, xp, max) => {
-        const lim = lims.find(element => element > xp);
-        if (xp < max && max < lim) {
-            return Math.ceil(max);
-        }
-        return Math.ceil(lim);
-    }
+    // average gains
+    const avgXpPerS = gains.map((x, i) => x.xpPerAction / currentIntervals[i] * 1000).reduce((a, b) => a + b, 0);
+    let avgPoolPerS = gains.map((x, i) => x.poolXpPerAction / currentIntervals[i] * 1000).reduce((a, b) => a + b, 0);
+    const masteryPerS = gains.map((x, i) => x.masteryXpPerAction / currentIntervals[i] * 1000);
+    const avgTokenXpPerS = gains.map((x, i) => x.tokenXpPerAction / currentIntervals[i] * 1000).reduce((a, b) => a + b, 0);
+    const avgTokensPerS = gains.map((x, i) => x.tokensPerAction / currentIntervals[i] * 1000).reduce((a, b) => a + b, 0);
+    // TODO rescale sequential gains
+
+    // get time to next breakpoint
     // skill
     const skillXpToLimit = getLim(initial.skillLim, current.skillXp, initial.targetXp) - current.skillXp;
-    const skillXpActions = skillXpToLimit / gains.xpPerAction;
-    // mastery variables
-    let masteryXpActions = Infinity;
-    let secondaryMasteryXpPrimaryActions = Infinity;
-    let poolXpActions = Infinity;
+    const skillXpSeconds = skillXpToLimit / avgXpPerS;
+    // mastery
+    let masteryXpSeconds = Infinity;
+    const allMasteryXpSeconds = [];
     if (initial.hasMastery) {
-        // mastery
-        const masteryXpToLimit = getLim(initial.skillLim, current.masteryXp, initial.targetMasteryXp) - current.masteryXp;
-        masteryXpActions = masteryXpToLimit / gains.masteryXpPerAction;
-        if (initial.secondary !== undefined) {
-            const secondaryMasteryXpToLimit = getLim(initial.secondary.skillLim, current.secondary.masteryXp, initial.secondary.targetMasteryXp) - current.secondary.masteryXp;
-            secondaryMasteryXpPrimaryActions = secondaryMasteryXpToLimit / gains.secondaryMasteryXpPerPrimaryAction;
-        }
-        // pool
-        const poolXpToLimit = getLim(initial.poolLim, current.poolXp, initial.targetPoolXp) - current.poolXp;
-        poolXpActions = poolXpToLimit / gains.poolXpPerAction;
+        initial.actions.forEach((x, i) => {
+            const masteryXpToLimit = getLim(initial.skillLim, current.actions[i].masteryXp, x.targetMasteryXp) - x.masteryXp;
+            allMasteryXpSeconds.push(masteryXpToLimit / masteryPerS[i]);
+        });
+        masteryXpSeconds = Math.min(...allMasteryXpSeconds);
     }
-
-    // Minimum actions based on limits
-    let expectedActions = Math.ceil(Math.min(skillXpActions, masteryXpActions, secondaryMasteryXpPrimaryActions, poolXpActions));
-
+    // pool
+    let poolXpSeconds = Infinity;
+    if (initial.hasMastery) {
+        const poolXpToLimit = getLim(initial.poolLim, current.poolXp, initial.targetPoolXp) - current.poolXp;
+        poolXpSeconds = poolXpToLimit / avgPoolPerS;
+    }
+    // resources
+    let resourceSeconds = Infinity;
     // estimate actions remaining with current resources
-    let resourceActions = 0;
     if (!noResources) {
+        if (initial.actions.length > 1) {
+            ETA.log('Attempting to simulate multiple different production actions at once, this is not implemented!')
+        }
         // estimate amount of actions possible with remaining resources
         // number of actions with rhaelyx charges
-        resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - ETA.rhaelyxChargePreservation));
+        let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - ETA.rhaelyxChargePreservation));
         // remaining resources
         const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - ETA.rhaelyxChargePreservation));
         // add number of actions without rhaelyx charges
         resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
-        expectedActions = Math.min(expectedActions, resourceActions);
-        // estimate total remaining actions
-        current.actions += expectedActions;
+        resourceSeconds = resourceActions * currentIntervals[0] / 1000
     }
+
+    // Minimum actions based on limits
+    const rawExpectedS = Math.min(skillXpSeconds, masteryXpSeconds, poolXpSeconds, resourceSeconds)
+    const expectedMS = Math.ceil(1000 * rawExpectedS);
+    const expectedS = expectedMS / 1000;
+    const expectedActions = currentIntervals.map(x => expectedMS / x);
+    // estimate total remaining actions
+    if (!noResources) {
+        current.actionCount += expectedActions[0];
+    }
+
+    // add token xp to pool xp if desired
+    if (ETASettings.USE_TOKENS) {
+        avgPoolPerS += avgTokenXpPerS;
+    }
+
     // Take away resources based on expectedActions
     if (!initial.isGathering) {
         // Update remaining Rhaelyx Charge uses
-        current.chargeUses -= expectedActions;
+        current.chargeUses -= expectedActions[0];
         if (current.chargeUses < 0) {
             current.chargeUses = 0;
         }
         // Update remaining resources
-        if (expectedActions === resourceActions) {
+        if (rawExpectedS === resourceSeconds) {
             current.resources = 0; // No more limits
         } else {
             let resUsed = 0;
-            if (expectedActions < current.chargeUses) {
+            if (expectedActions[0] < current.chargeUses) {
                 // won't run out of charges yet
-                resUsed = expectedActions * (totalChanceToUse - ETA.rhaelyxChargePreservation);
+                resUsed = expectedActions[0] * Math.max(0, totalChanceToUse - ETA.rhaelyxChargePreservation);
             } else {
                 // first use charges
-                resUsed = current.chargeUses * (totalChanceToUse - ETA.rhaelyxChargePreservation);
+                resUsed = current.chargeUses * Math.max(0, totalChanceToUse - ETA.rhaelyxChargePreservation);
                 // remaining actions are without charges
-                resUsed += (expectedActions - current.chargeUses) * totalChanceToUse;
+                resUsed += (expectedActions[0] - current.chargeUses) * Math.max(0, totalChanceToUse);
             }
             current.resources = Math.round(current.resources - resUsed);
         }
     }
 
     // time for current loop
-    const timeToAdd = expectedActions * averageActionTime;
     // gain tokens, unless we're using them
     if (!ETASettings.USE_TOKENS) {
-        current.tokens += expectedActions * gains.tokensPerAction;
+        current.tokens += avgTokensPerS * expectedS;
     }
     // Update time and Xp
-    current.sumTotalTime += timeToAdd;
-    current.skillXp += gains.xpPerAction * expectedActions;
-    current.masteryXp += gains.masteryXpPerAction * expectedActions;
-    if (initial.secondary !== undefined) {
-        current.secondary.masteryXp += gains.secondaryMasteryXpPerPrimaryAction * expectedActions;
-    }
-    current.poolXp += gains.poolXpPerAction * expectedActions;
+    current.sumTotalTime += expectedMS;
+    current.skillXp += avgXpPerS * expectedS;
+    current.actions.forEach((x, i) => x.masteryXp += gains[i].masteryXpPerAction * expectedActions[i]);
+    current.poolXp += avgPoolPerS * expectedS;
     // Time for target skill level, 99 mastery, and 100% pool
     if (!current.targetSkillReached && initial.targetXp <= current.skillXp) {
         current.targetSkillTime = current.sumTotalTime;
         current.targetSkillReached = true;
         current.targetSkillResources = initial.recordCraft - current.resources;
     }
-    if (!current.targetMasteryReached && initial.targetMasteryXp <= current.masteryXp) {
-        current.targetMasteryTime = current.sumTotalTime;
-        current.targetMasteryReached = true;
-        current.targetMasteryResources = initial.recordCraft - current.resources;
-    }
-    if (initial.secondary !== undefined) {
-        if (!current.secondary.targetMasteryReached && initial.targetMasteryXp <= current.secondary.masteryXp) {
-            current.secondary.targetMasteryTime = current.secondary.sumTotalTime;
-            current.secondary.targetMasteryReached = true;
-            current.secondary.targetMasteryResources = initial.recordCraft - current.secondary.resources;
+    current.actions.forEach((x, i) => {
+        if (!x.targetMasteryReached && initial.actions[i].targetMasteryXp <= x.masteryXp) {
+            x.targetMasteryTime = current.sumTotalTime;
+            x.targetMasteryReached = true;
+            x.targetMasteryResources = initial.recordCraft - current.resources;
         }
-    }
+    });
     if (!current.targetPoolReached && initial.targetPoolXp <= current.poolXp) {
         current.targetPoolTime = current.sumTotalTime;
         current.targetPoolReached = true;
         current.targetPoolResources = initial.recordCraft - current.resources;
     }
     // Level up mastery if hitting Mastery limit
-    if (expectedActions === masteryXpActions) {
-        current.totalMasteryLevel++;
-    }
-    if (expectedActions === secondaryMasteryXpPrimaryActions) {
-        current.totalMasteryLevel++;
-    }
+    allMasteryXpSeconds.forEach(x => {
+        if (rawExpectedS === x) {
+            current.totalMasteryLevel++;
+        }
+    });
     // return updated values
     return current;
 }
 
 function currentXpRates(initial) {
+    ETA.log('currentXpRates not fixed yet')
     let rates = {};
-    const initialInterval = intervalAdjustment(initial, initial.poolXp, initial.masteryXp);
-    const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, initial.masteryXp);
-    rates.xpH = skillXpAdjustment(initial, initial.poolXp, initial.masteryXp) / initialAverageActionTime * 1000 * 3600;
-    if (initial.hasMastery) {
-        // compute current mastery xp / h using the getMasteryXpToAdd from the game or the method from this script
-        // const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
-        const masteryXpPerAction = calcMasteryXpToAdd(initial, initial, initialInterval);
-        rates.masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
-        // pool percentage per hour
-        rates.poolH = calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
-        rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp, initial.masteryXp);
-    }
+    initial.actions.forEach((x, i) => {
+        const initialInterval = intervalAdjustment(initial, initial.poolXp, x.masteryXp, x.skillInterval);
+        const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, x.masteryXp);
+        rates.xpH = skillXpAdjustment(initial, x.itemXp, x.itemID, initial.poolXp, x.masteryXp) / initialAverageActionTime * 1000 * 3600;
+        if (initial.hasMastery) {
+            // compute current mastery xp / h using the getMasteryXpToAdd from the game or the method from this script
+            // const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
+            const masteryXpPerAction = calcMasteryXpToAdd(initial, initial.totalMasteryLevel, initial.skillXp, x.masteryXp, initial.poolXp, initialInterval, x.itemID);
+            rates.masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
+            // pool percentage per hour
+            rates.poolH = calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
+            rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp, x.masteryXp);
+        }
+    });
     return rates;
 }
 
@@ -1643,10 +1650,7 @@ function getXpRates(initial, current) {
     } else {
         // compute average rates until resources run out
         rates.xpH = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
-        rates.masteryXpH = (current.masteryXp - initial.masteryXp) * 3600 * 1000 / current.sumTotalTime;
-        if (initial.secondary !== undefined) {
-            rates.masteryXpH += (current.secondary.masteryXp - initial.secondary.masteryXp) * 3600 * 1000 / current.sumTotalTime;
-        }
+        rates.masteryXpH = initial.actions.map((x, i) => (current.actions[i].masteryXp - x.masteryXp) * 3600 * 1000 / current.sumTotalTime);
         // average pool percentage per hour
         rates.poolH = (current.poolXp - initial.poolXp) * 3600 * 1000 / current.sumTotalTime / initial.maxPoolXp;
         rates.tokensH = (current.tokens - initial.tokens) * 3600 * 1000 / current.sumTotalTime;
@@ -1659,7 +1663,7 @@ function getXpRates(initial, current) {
 // Calculates expected time, taking into account Mastery Level advancements during the craft
 function calcExpectedTime(initial) {
     // initialize the expected time variables
-    let current = currentVariables(initial, initial.recordCraft);
+    let current = currentVariables(initial, initial.recordCraft, initial.actions);
 
     // loop until out of resources
     while (current.resources > 0) {
@@ -1672,32 +1676,32 @@ function calcExpectedTime(initial) {
     // create result object
     let expectedTime = {
         timeLeft: Math.round(current.sumTotalTime),
-        actions: current.actions,
+        actions: current.actionCount,
         finalSkillXp: current.skillXp,
-        finalMasteryXp: current.masteryXp,
+        finalMasteryXp: current.actions.map(x => x.masteryXp),
         finalPoolXp: current.poolXp,
         finalPoolPercentage: poolXpToPercentage(current.poolXp),
         targetPoolTime: current.targetPoolTime,
-        targetMasteryTime: current.targetMasteryTime,
+        targetMasteryTime: current.actions.map(x => x.targetMasteryTime),
         targetSkillTime: current.targetSkillTime,
         rates: getXpRates(initial, current),
         tokens: current.tokens,
     };
     // continue calculations until time to all targets is found
-    while (!current.targetSkillReached || (initial.hasMastery && (!current.targetMasteryReached || !current.targetPoolReached))) {
+    while (!current.targetSkillReached || (initial.hasMastery && (!current.actions.map(x => x.targetMasteryReached).reduce((a, b) => a && b, true) || !current.targetPoolReached))) {
         current = actionsToBreakpoint(initial, current, true);
     }
     // if it is a gathering skill, then set final values to the values when reaching the final target
     if (initial.isGathering) {
         expectedTime.finalSkillXp = current.skillXp;
-        expectedTime.finalMasteryXp = current.masteryXp;
+        expectedTime.finalMasteryXp = current.actions.map(x => x.masteryXp);
         expectedTime.finalPoolXp = current.poolXp;
         expectedTime.finalPoolPercentage = poolXpToPercentage(current.poolXp);
         expectedTime.tokens = current.tokens;
     }
     // set time to targets
     expectedTime.targetSkillTime = current.targetSkillTime;
-    expectedTime.targetMasteryTime = current.targetMasteryTime;
+    expectedTime.targetMasteryTime = current.actions.map(x => x.targetMasteryTime);
     expectedTime.targetPoolTime = current.targetPoolTime;
     // return the resulting data object
     expectedTime.current = current;
@@ -1753,12 +1757,6 @@ function setupTimeRemaining(initial) {
     if (initial.hasMastery) {
         // mastery
         initial.totalMasteryLevel = getCurrentTotalMasteryLevelForSkill(initial.skillID);
-        if (!initial.isGathering) {
-            initial.masteryID = items[initial.itemID].masteryID[1];
-        }
-        initial.masteryXp = MASTERY[initial.skillID].xp[initial.masteryID];
-        initial.targetMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(initial.masteryXp));
-        initial.targetMasteryXp = convertLvlToXp(initial.targetMastery);
         // pool
         initial.poolXp = MASTERY[initial.skillID].pool;
         initial.maxPoolXp = getMasteryPoolTotalXP(initial.skillID);
@@ -1769,6 +1767,29 @@ function setupTimeRemaining(initial) {
         }
         initial.tokens = getQtyOfItem(CONSTANTS.item["Mastery_Token_" + skillName[initial.skillID]])
     }
+
+    // convert single action skills to `actions` format
+    // TODO: put it in this format straight away and remove the duplication
+    if (initial.actions === undefined) {
+        initial.actions = [{
+            itemID: initial.itemID,
+            itemXp: initial.itemXp,
+            skillInterval: initial.skillInterval,
+            masteryID: initial.masteryID, // this might still be undefined at this point
+        }];
+    }
+
+    // further configure the `actions`
+    initial.actions.forEach(x => {
+        if (initial.hasMastery) {
+            if (!initial.isGathering) {
+                x.masteryID = items[x.itemID].masteryID[1];
+            }
+            x.masteryXp = MASTERY[initial.skillID].xp[x.masteryID];
+            x.targetMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(x.masteryXp));
+            x.targetMasteryXp = convertLvlToXp(x.targetMastery);
+        }
+    });
 
     // Get itemXp Bonuses from gear and pets
     initial.staticXpBonus = getStaticXPBonuses(initial.skillID);
@@ -1833,7 +1854,9 @@ function timeRemaining(initial) {
         }
         times.push(ETA.time(ETASettings.DING_LEVEL, initial.targetLevel, convertXpToLvl(initial.skillXp), "Target level reached."));
         if (initial.hasMastery) {
-            times.push(ETA.time(ETASettings.DING_MASTERY, initial.targetMastery, convertXpToLvl(initial.masteryXp), "Target mastery reached."));
+            initial.actions.forEach((x, i) =>
+                times.push(ETA.time(ETASettings.DING_MASTERY, x.targetMastery, convertXpToLvl(x.masteryXp), "Target mastery reached."))
+            );
             times.push(ETA.time(ETASettings.DING_POOL, initial.targetPool, 100 * initial.poolXp / initial.maxPoolXp, "Target pool reached."));
         }
         ETA.setTimeLeft(initial, times);
@@ -1841,7 +1864,7 @@ function timeRemaining(initial) {
             ETA.taskComplete();
         }
         if (!initial.isGathering) {
-            generateProgressBars(initial, results);
+            generateProgressBars(initial, results, 0 /*TODO add proper action index here, usually it's 0 though*/);
         }
     }
 }
@@ -1876,15 +1899,17 @@ function injectHTML(initial, results, msLeft, now) {
                     + "\r\nETA: " + dateFormat(now, finishedTime);
             }
         }
-        if ((initial.isGathering || initial.skillID === CONSTANTS.skill.Cooking) && initial.itemID !== undefined && initial.secondary === undefined) {
-            const youHaveElementId = timeLeftElementId + "-YouHave";
-            $("#" + youHaveElementId).replaceWith(''
-                + `<small id="${youHaveElementId}">`
-                + `<span>You have: ${formatNumber(getQtyOfItem(initial.itemID))}</span>`
-                + `<img class="skill-icon-xs mr-2" src="${items[initial.itemID].media}">`
-                + "</small>"
-            );
-        }
+        initial.actions.map(x => {
+            if ((initial.isGathering || initial.skillID === CONSTANTS.skill.Cooking) && x.itemID !== undefined) {
+                const youHaveElementId = timeLeftElementId + "-YouHave";
+                $("#" + youHaveElementId).replaceWith(''
+                    + `<small id="${youHaveElementId}">`
+                    + `<span>You have: ${formatNumber(getQtyOfItem(x.itemID))}</span>`
+                    + `<img class="skill-icon-xs mr-2" src="${items[x.itemID].media}">`
+                    + "</small>"
+                );
+            }
+        });
         timeLeftElement.style.display = "block";
     }
     return timeLeftElement;
@@ -1910,13 +1935,13 @@ function generateTooltips(initial, ms, results, timeLeftElement, now) {
     // mastery tooltip
     if (initial.hasMastery && initial.secondary === undefined) {
         // don't show mastery target when combining multiple actions
-        const finalMastery = convertXpToLvl(results.finalMasteryXp);
-        const masteryProgress = getPercentageInLevel(results.finalMasteryXp, results.finalMasteryXp, "mastery");
+        const finalMastery = convertXpToLvl(results.finalMasteryXp[0]);
+        const masteryProgress = getPercentageInLevel(results.finalMasteryXp[0], results.finalMasteryXp[0], "mastery");
         tooltip += finalLevelElement(
             'Final Mastery',
             formatLevel(finalMastery, masteryProgress) + ' / 99',
             'info',
-        ) + tooltipSection(initial, now, ms.mastery, initial.targetMastery, results.current.targetMasteryResources);
+        ) + tooltipSection(initial, now, ms.mastery, initial.targetMastery, results.current.actions.map(x => x.targetMasteryResources));
     }
     // pool tooltip
     if (initial.hasMastery) {
@@ -2011,13 +2036,13 @@ const formatLevel = (level, progress) => {
     return level;
 }
 
-function generateProgressBars(initial, results) {
+function generateProgressBars(initial, results, idx) {
     // skill
     const skillProgress = getPercentageInLevel(initial.skillXp, results.finalSkillXp, "skill", true);
     $(`#skill-progress-bar-end-${initial.skillID}`).css("width", skillProgress + "%");
     // mastery
     if (initial.hasMastery) {
-        const masteryProgress = getPercentageInLevel(initial.masteryXp, results.finalMasteryXp, "mastery", true);
+        const masteryProgress = getPercentageInLevel(initial.actions[idx].masteryXp, results.finalMasteryXp[idx], "mastery", true);
         $(`#${initial.skillID}-mastery-pool-progress-end`).css("width", masteryProgress + "%");
         // pool
         const poolProgress = (results.finalPoolPercentage > 100) ?
