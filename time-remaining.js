@@ -1072,7 +1072,7 @@ function initialVariables(skillID, checkTaskComplete) {
     initial.staticPreservation += getTotalFromModifierArray("increasedSkillPreservationChance", skillID);
     initial.staticPreservation -= getTotalFromModifierArray("decreasedSkillPreservationChance", skillID)
     if (equippedItems.includes(CONSTANTS.item.Crown_of_Rhaelyx) && initial.hasMastery && !initial.isGathering) {
-        initial.staticPreservation += items[CONSTANTS.item.Crown_of_Rhaelyx].baseChanceToPreserve / 100; // Add base 10% chance
+        initial.staticPreservation += items[CONSTANTS.item.Crown_of_Rhaelyx].baseChanceToPreserve; // Add base 10% chance
     }
     return initial;
 }
@@ -1312,7 +1312,7 @@ function calcMasteryXpToAdd(initial, totalMasteryLevel, skillXp, masteryXp, pool
         }
         for (let i = 0; i < MASTERY[CONSTANTS.skill.Firemaking].xp.length; i++) {
             // The logs you are not burning
-            if (initial.action[0].masteryID !== i) {
+            if (initial.actions[0].masteryID !== i) {
                 if (getMasteryLevel(CONSTANTS.skill.Firemaking, i) >= 99) {
                     xpModifier += 0.0025;
                 }
@@ -1485,7 +1485,7 @@ function getLim(lims, xp, max) {
 function actionsToBreakpoint(initial, current, noResources = false) {
     // Adjustments
     const totalChanceToUse = 1 - initial.staticPreservation / 100
-        - masteryPreservation(initial, current.actions[0].masteryXp, current.poolXp);
+        - masteryPreservation(initial, current.actions[0].masteryXp, current.poolXp) / 100;
     const currentIntervals = current.actions.map((x, i) => intervalAdjustment(initial, current.poolXp, x.masteryXp, initial.actions[i].skillInterval));
     const averageActionTime = current.actions.map((x, i) => intervalRespawnAdjustment(initial, currentIntervals[i], current.poolXp, x.masteryXp));
 
@@ -1534,7 +1534,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
         const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - ETA.rhaelyxChargePreservation));
         // add number of actions without rhaelyx charges
         resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
-        resourceSeconds = resourceActions * currentIntervals[0] / 1000
+        resourceSeconds = resourceActions * currentIntervals[0] / 1000;
     }
 
     // Minimum actions based on limits
@@ -1676,7 +1676,7 @@ function calcExpectedTime(initial) {
     // create result object
     let expectedTime = {
         timeLeft: Math.round(current.sumTotalTime),
-        actions: current.actionCount,
+        actionCount: Math.floor(current.actionCount),
         finalSkillXp: current.skillXp,
         finalMasteryXp: current.actions.map(x => x.masteryXp),
         finalPoolXp: current.poolXp,
@@ -1894,7 +1894,7 @@ function injectHTML(initial, results, msLeft, now) {
             if (msLeft === 0) {
                 timeLeftElement.textContent += "\r\nNo resources!";
             } else {
-                timeLeftElement.textContent += "\r\nActions: " + formatNumber(results.actions)
+                timeLeftElement.textContent += "\r\nActions: " + formatNumber(results.actionCount)
                     + "\r\nTime: " + msToHms(msLeft)
                     + "\r\nETA: " + dateFormat(now, finishedTime);
             }
