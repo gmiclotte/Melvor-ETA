@@ -1615,38 +1615,39 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     return current;
 }
 
-function currentXpRates(initial) {
-    ETA.log('currentXpRates not fixed yet')
-    let rates = {};
+function currentXpRates(initial, idx = null) {
+    let rates = {
+        xpH: 0,
+        masteryXpH: 0,
+        poolH: 0,
+        tokensH: 0,
+    };
     initial.actions.forEach((x, i) => {
+        if (idx !== null && i !== idx) {
+            return;
+        }
         const initialInterval = intervalAdjustment(initial, initial.poolXp, x.masteryXp, x.skillInterval);
         const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, x.masteryXp);
-        rates.xpH = skillXpAdjustment(initial, x.itemXp, x.itemID, initial.poolXp, x.masteryXp) / initialAverageActionTime * 1000 * 3600;
+        rates.xpH += skillXpAdjustment(initial, x.itemXp, x.itemID, initial.poolXp, x.masteryXp) / initialAverageActionTime * 1000 * 3600;
         if (initial.hasMastery) {
             // compute current mastery xp / h using the getMasteryXpToAdd from the game or the method from this script
             // const masteryXpPerAction = getMasteryXpToAdd(initial.skillID, initial.masteryID, initialInterval);
             const masteryXpPerAction = calcMasteryXpToAdd(initial, initial.totalMasteryLevel, initial.skillXp, x.masteryXp, initial.poolXp, initialInterval, x.itemID);
-            rates.masteryXpH = masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
+            rates.masteryXpH += masteryXpPerAction / initialAverageActionTime * 1000 * 3600;
             // pool percentage per hour
-            rates.poolH = calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
-            rates.tokensH = 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp, x.masteryXp);
+            rates.poolH += calcPoolXpToAdd(initial.skillXp, masteryXpPerAction) / initialAverageActionTime * 1000 * 3600 / initial.maxPoolXp;
+            rates.tokensH += 3600 * 1000 / initialAverageActionTime / actionsPerToken(initial.skillID, initial.skillXp, x.masteryXp);
         }
     });
     return rates;
 }
 
-function getXpRates(initial, current) {
+function getXpRates(initial, current, idx = null) {
     // compute exp rates, either current or average until resources run out
     let rates = {};
     if (ETASettings.CURRENT_RATES || initial.isGathering || initial.recordCraft === 0) {
         // compute current rates
-        rates = currentXpRates(initial);
-        if (initial.secondary !== undefined) {
-            const secondaryRates = currentXpRates(initial.secondary);
-            Object.getOwnPropertyNames(rates).forEach(x => {
-                rates[x] += secondaryRates[x];
-            });
-        }
+        rates = currentXpRates(initial, idx);
     } else {
         // compute average rates until resources run out
         rates.xpH = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
