@@ -298,52 +298,101 @@ ETA.setTimeLeft = function (initial, times) {
 //////////////
 
 const tempContainer = (id) => {
-    return ''
+    return html2Node(''
         + '<div class="font-size-base font-w600 text-center text-muted">'
         + `	<small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line" data-toggle="tooltip" data-placement="top" data-html="true" title="" data-original-title="">`
         + '	</small>'
         + `	<small id ="${id}" class="mb-2" style="display:block;clear:both;white-space:pre-line">`
         + `<div id="${id + '-YouHave'}"/>`
         + '	</small>'
-        + '</div>';
+        + '</div>');
 }
 
 ETA.makeProcessingDisplays = function () {
-    $("#smith-item-have").after(tempContainer("timeLeftSmithing"));
-    $("#fletch-item-have").after(tempContainer("timeLeftFletching"));
-    $("#runecraft-item-have").after(tempContainer("timeLeftRunecrafting"));
-    $("#craft-item-have").after(tempContainer("timeLeftCrafting"));
-    $("#herblore-item-have").after(tempContainer("timeLeftHerblore"));
-    $("#skill-cooking-food-selected-qty").parent().parent().parent().after(tempContainer("timeLeftCooking"));
-    $("#skill-fm-logs-selected-qty").parent().parent().parent().after(tempContainer("timeLeftFiremaking"));
-    $("#magic-item-have-and-div").after(tempContainer("timeLeftMagic"));
+    // smithing
+    let node = document.getElementById('smith-item-have');
+    node.parentNode.insertBefore(tempContainer('timeLeftSmithing'), node.nextSibling);
+    // fletching
+    node = document.getElementById('fletch-item-have');
+    node.parentNode.insertBefore(tempContainer('timeLeftFletching'), node.nextSibling);
+    // Runecrafting
+    node = document.getElementById('runecraft-item-have');
+    node.parentNode.insertBefore(tempContainer('timeLeftRunecrafting'), node.nextSibling);
+    // Crafting
+    node = document.getElementById('craft-item-have');
+    node.parentNode.insertBefore(tempContainer('timeLeftCrafting'), node.nextSibling);
+    // Herblore
+    node = document.getElementById('herblore-item-have');
+    node.parentNode.insertBefore(tempContainer('timeLeftHerblore'), node.nextSibling);
+    // Cooking
+    node = document.getElementById('skill-cooking-food-selected-qty');
+    node = node.parentNode.parentNode.parentNode;
+    node.parentNode.insertBefore(tempContainer('timeLeftCooking'), node.nextSibling);
+    // Firemaking
+    node = document.getElementById('skill-fm-logs-selected-qty');
+    node = node.parentNode.parentNode.parentNode;
+    node.parentNode.insertBefore(tempContainer('timeLeftFiremaking'), node.nextSibling);
+    // Alt. Magic
+    node = document.getElementById('magic-item-have-and-div');
+    node.parentNode.insertBefore(tempContainer('timeLeftMagic'), node.nextSibling);
 }
 
 ETA.makeMiningDisplay = function () {
     miningData.forEach((_, i) => {
-        $(`#mining-ore-img-${i}`).before(tempContainer(`timeLeftMining-${i}`))
+        const node = document.getElementById(`mining-ore-img-${i}`);
+        node.parentNode.insertBefore(tempContainer(`timeLeftMining-${i}`), node);
     });
 }
 
 ETA.makeThievingDisplay = function () {
     thievingNPC.forEach((_, i) => {
-        $(`#success-rate-${i}`).parent().after(tempContainer(`timeLeftThieving-${i}`))
+        const node = document.getElementById(`success-rate-${i}`).parentNode;
+        node.parentNode.insertBefore(tempContainer(`timeLeftThieving-${i}`), node.nextSibling);
     });
 }
 
 ETA.makeWoodcuttingDisplay = function () {
     trees.forEach((_, i) => {
-        $(`#tree-rates-${i}`).after(tempContainer(`timeLeftWoodcutting-${i}`))
+        const node = document.getElementById(`tree-rates-${i}`);
+        node.parentNode.insertBefore(tempContainer(`timeLeftWoodcutting-${i}`), node.nextSibling);
     });
-    $('#skill-woodcutting-multitree').parent().after(tempContainer('timeLeftWoodcutting-Secondary'))
+    const node = document.getElementById('skill-woodcutting-multitree').parentNode;
+    node.parentNode.insertBefore(tempContainer('timeLeftWoodcutting-Secondary'), node.nextSibling);
 }
 
 ETA.makeFishingDisplay = function () {
     fishingAreas.forEach((_, i) => {
-        $(`#fishing-area-${i}-selected-fish-xp`).after(tempContainer(`timeLeftFishing-${i}`))
+        const node = document.getElementById(`fishing-area-${i}-selected-fish-xp`);
+        node.parentNode.insertBefore(tempContainer(`timeLeftFishing-${i}`), node.nextSibling);
     });
 }
 
+ETA.makeAgilityDisplay = function () {
+    chosenAgilityObstacles.forEach(i => {
+        if (i === -1) {
+            return;
+        }
+        if (document.getElementById(`timeLeftAgility-${i}`)) {
+            // element already exists
+            return;
+        }
+        let node = document.getElementById(`agility-obstacle-${i}`);
+        node = node.children[0].children[0].children[0];
+        node.insertBefore(tempContainer(`timeLeftAgility-${i}`), node.children[3]);
+    });
+    if (document.getElementById('timeLeftAgility-Secondary')) {
+        // element already exists
+        return;
+    }
+    document.getElementById('agility-breakdown-items').appendChild(tempContainer('timeLeftAgility-Secondary'));
+}
+
+html2Node = (html) => {
+    var template = document.createElement('template');
+    html = html.trim(); // Never return a text node of whitespace as the result
+    template.innerHTML = html;
+    return template.content.firstChild;
+}
 
 ////////////////
 //main wrapper//
