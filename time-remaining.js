@@ -1370,7 +1370,7 @@ function configureThieving(initial) {
 }
 
 function configureWoodcutting(initial) {
-    const wcAction = x =>  {
+    const wcAction = x => {
         return {
             itemID: x,
             itemXp: trees[x].xp,
@@ -1406,7 +1406,7 @@ function configureFishing(initial) {
 }
 
 function configureAgility(initial) {
-    const agiAction = x =>  {
+    const agiAction = x => {
         return {
             itemXp: agilityObstacles[x].completionBonuses.xp,
             skillInterval: agilityObstacles[x].interval,
@@ -2086,7 +2086,7 @@ function injectHTML(initial, results, msLeft, now) {
         }
     }
     if (ETASettings.SHOW_ACTION_TIME) {
-        timeLeftElement.textContent += "\r\nAction time: " + formatNumber(Math.floor(results.rates.actionTime) / 1000) + 's';
+        timeLeftElement.textContent += "\r\nAction time: " + formatNumber(Math.ceil(results.rates.actionTime) / 1000) + 's';
         timeLeftElement.textContent += "\r\nActions/h: " + formatNumber(Math.floor(100 * 3600 * 1000 / Math.floor(results.rates.timePerAction)) / 100);
     }
     if (!initial.isGathering) {
