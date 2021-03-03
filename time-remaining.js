@@ -952,6 +952,7 @@ function masteryPreservation(initial, masteryXp, poolXp) {
 function intervalAdjustment(initial, poolXp, masteryXp, skillInterval) {
     let flatReduction = initial.flatIntervalReduction;
     let percentReduction = initial.percentIntervalReduction;
+    let adjustedInterval = skillInterval;
     // compute mastery or pool dependent modifiers
     switch (initial.skillID) {
         case CONSTANTS.skill.Woodcutting:
@@ -966,15 +967,18 @@ function intervalAdjustment(initial, poolXp, masteryXp, skillInterval) {
             percentReduction += convertXpToLvl(masteryXp) * 0.1;
             break;
         case CONSTANTS.skill.Mining:
-        case CONSTANTS.skill.Crafting:
-            // pool bonus speed
             if (poolXp >= initial.poolLim[2]) {
-                flatReduction += 200;
+                adjustedInterval += 200;
+            }
+            break;
+        case CONSTANTS.skill.Crafting:
+            if (poolXp >= initial.poolLim[2]) {
+                adjustedInterval -= 200;
             }
             break;
         case CONSTANTS.skill.Fletching:
             if (poolXp >= initial.poolLim[3]) {
-                flatReduction += 200;
+                adjustedInterval -= 200;
             }
             break;
         case CONSTANTS.skill.Agility:
@@ -982,10 +986,9 @@ function intervalAdjustment(initial, poolXp, masteryXp, skillInterval) {
             break;
     }
     // apply modifiers
-    let adjustedInterval = skillInterval;
     adjustedInterval *= 1 - percentReduction / 100;
     adjustedInterval -= flatReduction;
-    return adjustedInterval;
+    return Math.ceil(adjustedInterval);
 }
 
 // Adjust interval based on down time
@@ -1047,7 +1050,7 @@ function intervalRespawnAdjustment(initial, currentInterval, poolXp, masteryXp, 
         case CONSTANTS.skill.Agility:
             adjustedInterval = agiLapTime;
     }
-    return adjustedInterval;
+    return Math.ceil(adjustedInterval);
 }
 
 // Adjust skill Xp based on unlocked bonuses
