@@ -2041,7 +2041,6 @@ function injectHTML(initial, results, msLeft, now, initialRun = true) {
     }
     const timeLeftElement = document.getElementById(timeLeftElementId);
     if (timeLeftElement === null) {
-        ETA.log(`unable to find element with ID ${timeLeftElementId}`);
         switch (initial.skillID) {
             case CONSTANTS.skill.Thieving:
                 ETA.makeThievingDisplay();
