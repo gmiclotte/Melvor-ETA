@@ -1413,13 +1413,10 @@ function configureAgility(initial) {
 
 // Calculate mastery xp based on unlocked bonuses
 function calcMasteryXpToAdd(initial, totalMasteryLevel, skillXp, masteryXp, poolXp, timePerAction, itemID) {
-    timePerAction = getTimePerActionModifierMastery(initial.skillID, timePerAction, itemID);
+    const modifiedTimePerAction = getTimePerActionModifierMastery(initial.skillID, timePerAction, itemID);
     let xpModifier = 1;
     // General Mastery Xp formula
-    let xpToAdd = (
-        (calcTotalUnlockedItems(initial.skillID, skillXp) * totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID)
-        + convertXpToLvl(masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)
-    ) * (timePerAction / 1000) / 2;
+    let xpToAdd = ((calcTotalUnlockedItems(initial.skillID, skillXp) * totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID) + convertXpToLvl(masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)) * (modifiedTimePerAction / 1000) / 2;
     // Skill specific mastery pool modifier
     if (poolXp >= initial.poolLim[0]) {
         xpModifier += 0.05;
