@@ -1911,6 +1911,10 @@ function setupTimeRemaining(initial) {
                 initial.agiLapTime += intervalAdjustment(initial, poolXp, masteryXp, interval);
             });
         }
+        // add agility potion effect
+        if (herbloreBonuses[26].bonus[0] === 0 && herbloreBonuses[26].charges > 0) {
+            initial.percentIntervalReduction += herbloreBonuses[26].bonus[1];
+        }
     }
     // Configure initial mastery values for all skills with masteries
     if (initial.hasMastery) {
