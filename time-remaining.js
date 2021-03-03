@@ -664,19 +664,6 @@ function script() {
     ETA.makeFishingDisplay();
     ETA.makeAgilityDisplay();
 
-    // remake Agility display after loading the Agility Obstacles
-    ETA.loadAgilityRef = loadAgility;
-    loadAgility = (...args) => {
-        ETA.loadAgilityRef(...args);
-        ETA.log('Remaking Agility display');
-        ETA.makeAgilityDisplay();
-        try {
-            ETA.timeRemainingWrapper(CONSTANTS.skill.Agility, false);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
     // Mastery Pool progress
     for (let id in SKILLS) {
         if (SKILLS[id].hasMastery) {
@@ -2004,7 +1991,9 @@ function timeRemaining(initial) {
     //Inject timeLeft HTML
     const now = new Date();
     const timeLeftElement = injectHTML(initial, results, ms.resources, now);
-    generateTooltips(initial, ms, results, timeLeftElement, now);
+    if (timeLeftElement !== null) {
+        generateTooltips(initial, ms, results, timeLeftElement, now);
+    }
 
     // TODO fix this for woodcutting and agility
     if (initial.actions.length === 1) {
@@ -2030,19 +2019,28 @@ function timeRemaining(initial) {
     }
 }
 
-function injectHTML(initial, results, msLeft, now) {
+function injectHTML(initial, results, msLeft, now, initialRun = true) {
     let timeLeftElementId = `timeLeft${skillName[initial.skillID]}`;
     if (initial.actions.length > 1) {
         timeLeftElementId += "-Secondary";
     } else if (initial.isGathering) {
         timeLeftElementId += "-" + initial.currentAction;
     }
-    if (initial.skillID === CONSTANTS.skill.Thieving && document.getElementById(timeLeftElementId) === null) {
-        ETA.makeThievingDisplay();
-    }
     const timeLeftElement = document.getElementById(timeLeftElementId);
     if (timeLeftElement === null) {
         ETA.log(`unable to find element with ID ${timeLeftElementId}`);
+        switch (initial.skillID) {
+            case CONSTANTS.skill.Thieving:
+                ETA.makeThievingDisplay();
+                break;
+            case CONSTANTS.skill.Agility:
+                ETA.makeAgilityDisplay();
+                break;
+        }
+        if (initialRun) {
+            // try running the method again
+            return injectHTML(initial, results, msLeft, now, false);
+        }
         return null;
     }
     let finishedTime = addMSToDate(now, msLeft);
