@@ -1898,6 +1898,10 @@ function setupTimeRemaining(initial) {
     initial.flatIntervalReduction += getTotalFromModifierArray("decreasedSkillInterval", initial.skillID);
     initial.flatIntervalReduction -= getTotalFromModifierArray("increasedSkillInterval", initial.skillID);
     if (initial.skillID === CONSTANTS.skill.Agility) {
+        // add agility potion effect
+        if (herbloreBonuses[26].bonus[0] === 0 && herbloreBonuses[26].charges > 0) {
+            initial.percentIntervalReduction += herbloreBonuses[26].bonus[1];
+        }
         // set initial lap time
         initial.agiLapTime = 0;
         if (initial.skillID === CONSTANTS.skill.Agility) {
@@ -1907,10 +1911,6 @@ function setupTimeRemaining(initial) {
                 const interval = agilityObstacles[x].interval;
                 initial.agiLapTime += intervalAdjustment(initial, poolXp, masteryXp, interval);
             });
-        }
-        // add agility potion effect
-        if (herbloreBonuses[26].bonus[0] === 0 && herbloreBonuses[26].charges > 0) {
-            initial.percentIntervalReduction += herbloreBonuses[26].bonus[1];
         }
     }
     // Configure initial mastery values for all skills with masteries
