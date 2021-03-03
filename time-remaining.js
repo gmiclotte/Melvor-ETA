@@ -968,7 +968,7 @@ function intervalAdjustment(initial, poolXp, masteryXp, skillInterval) {
             break;
         case CONSTANTS.skill.Mining:
             if (poolXp >= initial.poolLim[2]) {
-                adjustedInterval += 200;
+                flatReduction += 200;
             }
             break;
         case CONSTANTS.skill.Crafting:
