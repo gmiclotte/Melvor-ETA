@@ -664,23 +664,10 @@ function script() {
     ETA.makeFishingDisplay();
     ETA.makeAgilityDisplay();
 
-    // remake Agility display when building a new obstacle
-    ETA.buildAgilityObstacleRef = buildAgilityObstacle;
-    buildAgilityObstacle = (...args) => {
-        ETA.buildAgilityObstacleRef(...args);
-        ETA.log('Remaking Agility display');
-        ETA.makeAgilityDisplay();
-        try {
-            ETA.timeRemainingWrapper(CONSTANTS.skill.Agility, false);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    // remake Agility display when removing an obstacle
-    ETA.destroyAgilityObstacleRef = destroyAgilityObstacle;
-    destroyAgilityObstacle = (...args) => {
-        ETA.destroyAgilityObstacleRef(...args);
+    // remake Agility display after loading the Agility Obstacles
+    ETA.loadAgilityRef = loadAgility;
+    loadAgility = (...args) => {
+        ETA.loadAgilityRef(...args);
         ETA.log('Remaking Agility display');
         ETA.makeAgilityDisplay();
         try {
