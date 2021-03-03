@@ -664,6 +664,19 @@ function script() {
     ETA.makeFishingDisplay();
     ETA.makeAgilityDisplay();
 
+    // remake Agility display after loading the Agility Obstacles
+    ETA.loadAgilityRef = loadAgility;
+    loadAgility = (...args) => {
+        ETA.loadAgilityRef(...args);
+        ETA.log('Remaking Agility display');
+        ETA.makeAgilityDisplay();
+        try {
+            ETA.timeRemainingWrapper(CONSTANTS.skill.Agility, false);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     // Mastery Pool progress
     for (let id in SKILLS) {
         if (SKILLS[id].hasMastery) {
