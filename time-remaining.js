@@ -1423,29 +1423,7 @@ function configureAgility(initial) {
 
 // Calculate mastery xp based on unlocked bonuses
 function calcMasteryXpToAdd(initial, totalMasteryLevel, skillXp, masteryXp, poolXp, timePerAction, itemID) {
-    switch (initial.skillID) {
-        case CONSTANTS.skill.Firemaking:
-            timePerAction = logsData[itemID].interval * 0.6;
-            break;
-        case CONSTANTS.skill.Cooking:
-            timePerAction = 2400;
-            break;
-        case CONSTANTS.skill.Smithing:
-            timePerAction = 1600;
-            break;
-        case CONSTANTS.skill.Fletching:
-            timePerAction = 1200;
-            break;
-        case CONSTANTS.skill.Crafting:
-            timePerAction = 1500;
-            break;
-        case CONSTANTS.skill.Runecrafting:
-            timePerAction = 1600;
-            break;
-        case CONSTANTS.skill.Herblore:
-            timePerAction = 1600;
-            break;
-    }
+    timePerAction = getTimePerActionModifierMastery(initial.skillID, timePerAction, itemID);
     let xpModifier = 1;
     // General Mastery Xp formula
     let xpToAdd = (
