@@ -1414,7 +1414,7 @@ function configureAgility(initial) {
 // Calculate mastery xp based on unlocked bonuses
 function calcMasteryXpToAdd(initial, totalMasteryLevel, skillXp, masteryXp, poolXp, timePerAction, itemID) {
     const modifiedTimePerAction = getTimePerActionModifierMastery(initial.skillID, timePerAction, itemID);
-    let xpModifier = 1;
+    let xpModifier = initial.staticMXpBonus;
     // General Mastery Xp formula
     let xpToAdd = ((calcTotalUnlockedItems(initial.skillID, skillXp) * totalMasteryLevel) / getTotalMasteryLevelForSkill(initial.skillID) + convertXpToLvl(masteryXp) * (getTotalItemsInSkill(initial.skillID) / 10)) * (modifiedTimePerAction / 1000) / 2;
     // Skill specific mastery pool modifier
@@ -1449,14 +1449,6 @@ function calcMasteryXpToAdd(initial, totalMasteryLevel, skillXp, masteryXp, pool
                 xpModifier += 0.0025;
             }
         }
-    }
-    // Ty modifier
-    if (petUnlocked[21]) {
-        xpModifier += 0.03;
-    }
-    // AROM modifier
-    if (equippedItems.includes(CONSTANTS.item.Ancient_Ring_Of_Mastery)) {
-        xpModifier += items[CONSTANTS.item.Ancient_Ring_Of_Mastery].bonusMasteryXP;
     }
     // Combine base and modifiers
     xpToAdd *= xpModifier;
@@ -1953,6 +1945,7 @@ function setupTimeRemaining(initial) {
 
     // Get itemXp Bonuses from gear and pets
     initial.staticXpBonus = getStaticXPBonuses(initial.skillID);
+    initial.staticMXpBonus = getStaticMXPBonuses(initial.skillID);
 
     // Populate masteryLim from masteryLimLevel
     for (let i = 0; i < initial.masteryLimLevel.length; i++) {
@@ -1987,6 +1980,14 @@ function getStaticXPBonuses(skill) {
     xpMultiplier += getTotalFromModifierArray("increasedSkillXP", skill) / 100;
     xpMultiplier -= getTotalFromModifierArray("decreasedSkillXP", skill) / 100;
     xpMultiplier += (playerModifiers.increasedGlobalSkillXP - playerModifiers.decreasedGlobalSkillXP) / 100;
+    return xpMultiplier;
+}
+
+function getStaticMXPBonuses(skill) {
+    let xpMultiplier = 1;
+    xpMultiplier += getTotalFromModifierArray("increasedMasteryXP", skill) / 100;
+    xpMultiplier -= getTotalFromModifierArray("decreasedMasteryXP", skill) / 100;
+    xpMultiplier += (playerModifiers.increasedGlobalMasteryXP - playerModifiers.decreasedGlobalMasteryXP) / 100;
     return xpMultiplier;
 }
 
