@@ -1762,9 +1762,9 @@ function halveAgilityMasteryDebuffs(initial, id) {
     // check if we need to halve one of the debuffs
     const m = agilityObstacles[id].modifiers;
     // xp
-    initial.staticXpBonus += getBuff(m, 'decreasedGlobalSkillXP', 'decreasedSkillXP') / 2;
+    initial.staticXpBonus += getBuff(m, 'decreasedGlobalSkillXP', 'decreasedSkillXP') / 100 / 2;
     // mxp
-    initial.staticMXpBonus += getBuff(m, 'decreasedGlobalMasteryXP', 'decreasedMasteryXP') / 2;
+    initial.staticMXpBonus += getBuff(m, 'decreasedGlobalMasteryXP', 'decreasedMasteryXP') / 100 / 2;
     // interval
     initial.percentIntervalReduction += getBuff(m, 'increasedSkillIntervalPercent') / 2;
     initial.flatIntervalReduction += getBuff(m, 'increasedSkillInterval') / 2;
