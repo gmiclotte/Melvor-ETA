@@ -1621,7 +1621,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     const allMasteryXpSeconds = [];
     if (initial.hasMastery) {
         initial.actions.forEach((x, i) => {
-            const masteryXpToLimit = getLim(initial.skillLim, current.actions[i].masteryXp, x.targetMasteryXp) - x.masteryXp;
+            const masteryXpToLimit = getLim(initial.skillLim, current.actions[i].masteryXp, x.targetMasteryXp) - current.actions[i].masteryXp;
             allMasteryXpSeconds.push(masteryXpToLimit / masteryPerS[i]);
         });
         masteryXpSeconds = Math.min(...allMasteryXpSeconds);
