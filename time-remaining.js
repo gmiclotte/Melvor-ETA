@@ -219,6 +219,7 @@ ETA.addTargetInputs = () => {
         CONSTANTS.skill.Crafting,
         CONSTANTS.skill.Runecrafting,
         CONSTANTS.skill.Herblore,
+        CONSTANTS.skill.Agility,
         CONSTANTS.skill.Magic,
     ].forEach(i => {
         const card = ETA.skillTargetCard.addTab(SKILLS[i].name, SKILLS[i].media, '', '150px');
