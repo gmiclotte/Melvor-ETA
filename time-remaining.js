@@ -1742,14 +1742,14 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     current.totalMasteryLevel = initial.totalMasteryLevel;
     initial.actions.forEach((x, i) => {
         const y = current.actions[i];
-        const last = convertXpToLvl(x.masteryXp);
-        const now = convertXpToLvl(y.masteryXp);
-        if (last !== now) {
+        const masteryLevel = convertXpToLvl(y.masteryXp);
+        if (x.masteryLevel !== masteryLevel) {
             // increase total mastery
-            current.totalMasteryLevel += now - last;
-            if (now === 99) {
+            current.totalMasteryLevel += masteryLevel - x.masteryLevel;
+            if (masteryLevel === 99 && x.lastMasteryLevel !== 99) {
                 halveAgilityMasteryDebuffs(initial, initial.actions[i].masteryID);
             }
+            x.lastMasteryLevel = masteryLevel;
         }
     });
     // return updated values
@@ -1979,6 +1979,8 @@ function setupTimeRemaining(initial) {
                 x.masteryID = items[x.itemID].masteryID[1];
             }
             x.masteryXp = MASTERY[initial.skillID].xp[x.masteryID];
+            x.masteryLevel = convertXpToLvl(x.masteryXp);
+            x.lastMasteryLevel = x.masteryLevel;
             x.targetMastery = ETASettings.getTargetMastery(initial.skillID, convertXpToLvl(x.masteryXp));
             x.targetMasteryXp = convertLvlToXp(x.targetMastery);
         }
