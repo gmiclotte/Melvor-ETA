@@ -1602,7 +1602,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     }
     const averageActionTimes = current.actions.map((x, i) => intervalRespawnAdjustment(initial, currentIntervals[i], current.poolXp, x.masteryXp, current.agiLapTime));
     // Current Xp
-    let gains = gainPerAction(initial, current, averageActionTimes);
+    let gains = gainPerAction(initial, current, currentIntervals);
 
     // average gains
     const avgXpPerS = gains.map((x, i) => x.xpPerAction / averageActionTimes[i] * 1000).reduce((a, b) => a + b, 0);
