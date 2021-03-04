@@ -1739,11 +1739,50 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     }
     // Update total mastery level
     current.totalMasteryLevel = initial.totalMasteryLevel;
-    initial.actions.forEach(x => current.totalMasteryLevel -= convertXpToLvl(x.masteryXp));
-    current.actions.forEach(x => current.totalMasteryLevel += convertXpToLvl(x.masteryXp));
-
+    initial.actions.forEach((x, i) => {
+        const y = current.actions[i];
+        const last = convertXpToLvl(x.masteryXp);
+        const now = convertXpToLvl(y.masteryXp);
+        if (last !== now) {
+            // increase total mastery
+            current.totalMasteryLevel += now - last;
+            if (now === 99) {
+                halveAgilityMasteryDebuffs(initial, initial.actions[i].masteryID);
+            }
+        }
+    });
     // return updated values
     return current;
+}
+
+function halveAgilityMasteryDebuffs(initial, id) {
+    if (initial.skillID !== CONSTANTS.skill.Agility) {
+        return;
+    }
+    // check if we need to halve one of the debuffs
+    const m = agilityObstacles[id].modifiers;
+    // xp
+    initial.staticXpBonus += getBuff(m, 'decreasedGlobalSkillXP', 'decreasedSkillXP') / 2;
+    // mxp
+    initial.staticMXpBonus += getBuff(m, 'decreasedGlobalMasteryXP', 'decreasedMasteryXP') / 2;
+    // interval
+    initial.percentIntervalReduction += getBuff(m, 'increasedSkillIntervalPercent') / 2;
+    initial.flatIntervalReduction += getBuff(m, 'increasedSkillInterval') / 2;
+}
+
+function getBuff(modifier, global, specific) {
+    let change = 0;
+    if (global && modifier[global]) {
+        change += modifier[global];
+    }
+    if (specific && modifier[specific]) {
+        modifier[specific].forEach(x => {
+            if (x[0] === CONSTANTS.skill.Agility) {
+                change += x[1];
+            }
+        });
+    }
+    return change;
 }
 
 function currentXpRates(initial) {
