@@ -449,21 +449,26 @@ function gatheringWrapper(skillID, checkTaskComplete) {
             break
     }
     if (data.length > 0) {
-        data.forEach((x, i) => {
-            let initial = initialVariables(skillID, checkTaskComplete);
-            if (initial.skillID === CONSTANTS.skill.Fishing) {
-                initial.fishID = selectedFish[i];
-                if (initial.fishID === null) {
+        if (skillID !== CONSTANTS.skill.Agility) {
+            data.forEach((x, i) => {
+                if (skillID === CONSTANTS.skill.Woodcutting && currentlyCutting === 2 && currentTrees.includes(i)) {
                     return;
                 }
-            }
-            initial.currentAction = i;
-            if (initial.skillID === CONSTANTS.skill.Agility) {
-                initial.currentAction = x;
-                initial.agilityObstacles = data;
-            }
-            asyncTimeRemaining(initial);
-        });
+                let initial = initialVariables(skillID, checkTaskComplete);
+                if (initial.skillID === CONSTANTS.skill.Fishing) {
+                    initial.fishID = selectedFish[i];
+                    if (initial.fishID === null) {
+                        return;
+                    }
+                }
+                initial.currentAction = i;
+                if (initial.skillID === CONSTANTS.skill.Agility) {
+                    initial.currentAction = x;
+                    initial.agilityObstacles = data;
+                }
+                asyncTimeRemaining(initial);
+            });
+        }
         if (skillID === CONSTANTS.skill.Woodcutting) {
             if (currentlyCutting === 2) {
                 // init first tree
@@ -1712,7 +1717,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     }
     current.sumTotalTime += expectedMS;
     current.skillXp += avgXpPerS * expectedS;
-    current.actions.forEach((x, i) => x.masteryXp += gains[i].masteryXpPerAction * expectedActions[i]);
+    current.actions.forEach((x, i) => current.actions[i].masteryXp += gains[i].masteryXpPerAction * expectedActions[i]);
     current.poolXp += avgPoolPerS * expectedS;
     // Time for target skill level, 99 mastery, and 100% pool
     if (!current.targetSkillReached && initial.targetXp <= current.skillXp) {
@@ -1732,17 +1737,16 @@ function actionsToBreakpoint(initial, current, noResources = false) {
         current.targetPoolReached = true;
         current.targetPoolResources = initial.recordCraft - current.resources;
     }
-    // Level up mastery if hitting Mastery limit
-    allMasteryXpSeconds.forEach(x => {
-        if (rawExpectedS === x) {
-            current.totalMasteryLevel++;
-        }
-    });
+    // Update total mastery level
+    current.totalMasteryLevel = initial.totalMasteryLevel;
+    initial.actions.forEach(x => current.totalMasteryLevel -= convertXpToLvl(x.masteryXp));
+    current.actions.forEach(x => current.totalMasteryLevel += convertXpToLvl(x.masteryXp));
+
     // return updated values
     return current;
 }
 
-function currentXpRates(initial, idx = null) {
+function currentXpRates(initial) {
     let rates = {
         xpH: 0,
         masteryXpH: 0,
@@ -1751,9 +1755,6 @@ function currentXpRates(initial, idx = null) {
         actionTime: 0,
     };
     initial.actions.forEach((x, i) => {
-        if (idx !== null && i !== idx) {
-            return;
-        }
         const initialInterval = intervalAdjustment(initial, initial.poolXp, x.masteryXp, x.skillInterval);
         const initialAverageActionTime = intervalRespawnAdjustment(initial, initialInterval, initial.poolXp, x.masteryXp, initial.agiLapTime);
         rates.xpH += skillXpAdjustment(initial, x.itemXp, x.itemID, initial.poolXp, x.masteryXp) / initialAverageActionTime * 1000 * 3600;
@@ -1772,12 +1773,12 @@ function currentXpRates(initial, idx = null) {
     return rates;
 }
 
-function getXpRates(initial, current, idx = null) {
+function getXpRates(initial, current) {
     // compute exp rates, either current or average until resources run out
     let rates = {};
     if (ETASettings.CURRENT_RATES || initial.recordCraft === 0) {
         // compute current rates
-        rates = currentXpRates(initial, idx);
+        rates = currentXpRates(initial);
     } else {
         // compute average rates until resources run out
         rates.xpH = (current.skillXp - initial.skillXp) * 3600 * 1000 / current.sumTotalTime;
@@ -2006,7 +2007,29 @@ function timeRemaining(initial) {
     const now = new Date();
     const timeLeftElement = injectHTML(initial, results, ms.resources, now);
     if (timeLeftElement !== null) {
-        generateTooltips(initial, ms, results, timeLeftElement, now);
+        generateTooltips(initial, ms, results, timeLeftElement, now, {noMastery: initial.actions.length > 1});
+    }
+    if (initial.actions.length > 1) {
+        const actions = [...initial.actions];
+        const currentActions = [...initial.currentAction];
+        actions.forEach((a, i) => {
+            initial.actions = [a];
+            initial.currentAction = currentActions[i];
+            const singleTimeLeftElement = injectHTML(initial, {rates: currentXpRates(initial)}, ms.resources, now, false);
+            if (singleTimeLeftElement !== null) {
+                const aux = {
+                    finalMasteryXp: [results.finalMasteryXp[i]],
+                    current: {actions: [{targetMasteryResources: 0}]},
+                }
+                generateTooltips(initial, {mastery: results.current.actions[i].targetMasteryTime}, aux, singleTimeLeftElement, now, {
+                    noSkill: true,
+                    noPool: true
+                });
+            }
+        });
+        //reset
+        initial.actions = actions;
+        initial.currentAction = currentActions;
     }
 
     // TODO fix this for woodcutting and agility
@@ -2093,7 +2116,7 @@ function injectHTML(initial, results, msLeft, now, initialRun = true) {
     return timeLeftElement;
 }
 
-function generateTooltips(initial, ms, results, timeLeftElement, now) {
+function generateTooltips(initial, ms, results, timeLeftElement, now, flags = {}) {
     // Generate progression Tooltips
     if (!timeLeftElement._tippy) {
         tippy(timeLeftElement, {
@@ -2102,16 +2125,19 @@ function generateTooltips(initial, ms, results, timeLeftElement, now) {
             animation: false,
         });
     }
+    let tooltip = '';
     // level tooltip
-    const finalLevel = convertXpToLvl(results.finalSkillXp, true)
-    const levelProgress = getPercentageInLevel(results.finalSkillXp, results.finalSkillXp, "skill");
-    let tooltip = finalLevelElement(
-        'Final Level',
-        formatLevel(finalLevel, levelProgress) + ' / 99',
-        'success',
-    ) + tooltipSection(initial, now, ms.skill, initial.targetLevel, results.current.targetSkillResources);
+    if (!flags.noSkill) {
+        const finalLevel = convertXpToLvl(results.finalSkillXp, true)
+        const levelProgress = getPercentageInLevel(results.finalSkillXp, results.finalSkillXp, "skill");
+        tooltip += finalLevelElement(
+            'Final Level',
+            formatLevel(finalLevel, levelProgress) + ' / 99',
+            'success',
+        ) + tooltipSection(initial, now, ms.skill, initial.targetLevel, results.current.targetSkillResources);
+    }
     // mastery tooltip
-    if (initial.hasMastery && initial.actions.length === 1) {
+    if (!flags.noMastery && initial.hasMastery) {
         // don't show mastery target when combining multiple actions
         const finalMastery = convertXpToLvl(results.finalMasteryXp[0]);
         const masteryProgress = getPercentageInLevel(results.finalMasteryXp[0], results.finalMasteryXp[0], "mastery");
@@ -2122,7 +2148,7 @@ function generateTooltips(initial, ms, results, timeLeftElement, now) {
         ) + tooltipSection(initial, now, ms.mastery, initial.actions[0].targetMastery, results.current.actions.map(x => x.targetMasteryResources));
     }
     // pool tooltip
-    if (initial.hasMastery) {
+    if (!flags.noPool && initial.hasMastery) {
         tooltip += finalLevelElement(
             'Final Pool XP',
             results.finalPoolPercentage + '%',
