@@ -42,11 +42,11 @@ window.ETASettings = {
     DING_LEVEL: true,
     DING_MASTERY: true,
     DING_POOL: true,
+    // change the ding sound level
+    DING_VOLUME: 0.1,
     /*
         targets
      */
-    // change the ding sound level
-    DING_VOLUME: 0.1,
     // Default global target level / mastery / pool% is 99 / 99 / 100
     GLOBAL_TARGET_LEVEL: 99,
     GLOBAL_TARGET_MASTERY: 99,
