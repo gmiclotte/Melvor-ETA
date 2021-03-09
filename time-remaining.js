@@ -904,52 +904,74 @@ function getPercentageInLevel(currentXp, finalXp, type, bar = false) {
 }
 
 //Return the preservation for any mastery and pool
-function masteryPreservation(initial, masteryXp, poolXp) {
+masteryPreservation = (initial, masteryXp, poolXp) => {
     if (!initial.hasMastery) {
         return 0;
     }
     const masteryLevel = convertXpToLvl(masteryXp);
-    let preservationChance = 0;
+    const poolProgress = 100 * poolXp / initial.maxPoolXp;
+
+    // modifiers and base rhaelyx
+    let preservationChance = initial.staticPreservation;
+    // skill specific bonuses
     switch (initial.skillID) {
         case CONSTANTS.skill.Cooking:
-            if (poolXp >= initial.poolLim[2])
+            if (poolProgress >= masteryCheckpoints[2]) {
                 preservationChance += 10;
+            }
             break;
         case CONSTANTS.skill.Smithing:
-            let smithingMasteryLevel = masteryLevel;
-            if (smithingMasteryLevel >= 99) preservationChance += 30;
-            else if (smithingMasteryLevel >= 80) preservationChance += 20;
-            else if (smithingMasteryLevel >= 60) preservationChance += 15;
-            else if (smithingMasteryLevel >= 40) preservationChance += 10;
-            else if (smithingMasteryLevel >= 20) preservationChance += 5;
-            if (poolXp >= initial.poolLim[1])
+            if (masteryLevel >= 99) {
+                preservationChance += 30;
+            } else if (masteryLevel >= 80) {
+                preservationChance += 20;
+            } else if (masteryLevel >= 60) {
+                preservationChance += 15;
+            } else if (masteryLevel >= 40) {
+                preservationChance += 10;
+            } else if (masteryLevel >= 20) {
                 preservationChance += 5;
-            if (poolXp >= initial.poolLim[2])
+            }
+            if (poolProgress >= masteryCheckpoints[1]) {
                 preservationChance += 5;
+            }
+            if (poolProgress >= masteryCheckpoints[2]) {
+                preservationChance += 5;
+            }
             break;
         case CONSTANTS.skill.Fletching:
             preservationChance += 0.2 * masteryLevel - 0.2;
-            if (masteryLevel >= 99)
+            if (masteryLevel >= 99) {
                 preservationChance += 5;
+            }
             break;
         case CONSTANTS.skill.Crafting:
             preservationChance += 0.2 * masteryLevel - 0.2;
-            if (masteryLevel >= 99)
+            if (masteryLevel >= 99) {
                 preservationChance += 5;
-            if (poolXp >= initial.poolLim[1])
+            }
+            if (poolProgress >= masteryCheckpoints[1]) {
                 preservationChance += 5;
+            }
             break;
         case CONSTANTS.skill.Runecrafting:
-            if (poolXp >= initial.poolLim[2])
+            if (poolProgress >= masteryCheckpoints[2]) {
                 preservationChance += 10;
+            }
             break;
         case CONSTANTS.skill.Herblore:
             preservationChance += 0.2 * masteryLevel - 0.2;
-            if (masteryLevel >= 99)
+            if (masteryLevel >= 99) preservationChance += 5;
+            if (poolProgress >= masteryCheckpoints[2]) {
                 preservationChance += 5;
-            if (poolXp >= initial.poolLim[2])
-                preservationChance += 5;
+            }
             break;
+    }
+    // rhaelyx is handled outside of this function
+
+    // cap preservation to 80%
+    if (preservationChance > 80) {
+        preservationChance = 80;
     }
     return preservationChance;
 }
@@ -1194,7 +1216,7 @@ function initialVariables(skillID, checkTaskComplete) {
     }
     initial.masteryLimLevel.push(Infinity);
     // static preservation
-    initial.staticPreservation += playerModifiers.increasedGlobalPreservationChance;
+    initial.staticPreservation = playerModifiers.increasedGlobalPreservationChance;
     initial.staticPreservation -= playerModifiers.decreasedGlobalPreservationChance;
     initial.staticPreservation += getTotalFromModifierArray("increasedSkillPreservationChance", skillID);
     initial.staticPreservation -= getTotalFromModifierArray("decreasedSkillPreservationChance", skillID)
@@ -1600,8 +1622,6 @@ function getLim(lims, xp, max) {
 
 function actionsToBreakpoint(initial, current, noResources = false) {
     // Adjustments
-    const totalChanceToUse = 1 - initial.staticPreservation / 100
-        - masteryPreservation(initial, current.actions[0].masteryXp, current.poolXp) / 100;
     const currentIntervals = current.actions.map((x, i) => intervalAdjustment(initial, current.poolXp, x.masteryXp, initial.actions[i].skillInterval));
     if (initial.skillID === CONSTANTS.skill.Agility) {
         current.agiLapTime = currentIntervals.reduce((a, b) => a + b, 0);
@@ -1640,6 +1660,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     }
     // resources
     let resourceSeconds = Infinity;
+    const totalChanceToUse = 1 - masteryPreservation(initial, current.actions[0].masteryXp, current.poolXp) / 100;
     // estimate actions remaining with current resources
     if (!noResources) {
         if (initial.actions.length > 1) {
