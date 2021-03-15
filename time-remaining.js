@@ -1668,9 +1668,10 @@ function actionsToBreakpoint(initial, current, noResources = false) {
         }
         // estimate amount of actions possible with remaining resources
         // number of actions with rhaelyx charges
-        let resourceActions = Math.min(current.chargeUses, current.resources / (totalChanceToUse - ETA.rhaelyxChargePreservation));
+        const totalChanceToUseWithCharges = Math.max(0.2, totalChanceToUse - ETA.rhaelyxChargePreservation);
+        let resourceActions = Math.min(current.chargeUses, current.resources / totalChanceToUseWithCharges);
         // remaining resources
-        const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * (totalChanceToUse - ETA.rhaelyxChargePreservation));
+        const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * totalChanceToUseWithCharges);
         // add number of actions without rhaelyx charges
         resourceActions = Math.ceil(resourceActions + resWithoutCharge / totalChanceToUse);
         resourceSeconds = resourceActions * averageActionTimes[0] / 1000;
