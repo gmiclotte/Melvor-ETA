@@ -1661,6 +1661,7 @@ function actionsToBreakpoint(initial, current, noResources = false) {
     // resources
     let resourceSeconds = Infinity;
     const totalChanceToUse = 1 - masteryPreservation(initial, current.actions[0].masteryXp, current.poolXp) / 100;
+    const totalChanceToUseWithCharges = Math.max(0.2, totalChanceToUse - ETA.rhaelyxChargePreservation);
     // estimate actions remaining with current resources
     if (!noResources) {
         if (initial.actions.length > 1) {
@@ -1668,7 +1669,6 @@ function actionsToBreakpoint(initial, current, noResources = false) {
         }
         // estimate amount of actions possible with remaining resources
         // number of actions with rhaelyx charges
-        const totalChanceToUseWithCharges = Math.max(0.2, totalChanceToUse - ETA.rhaelyxChargePreservation);
         let resourceActions = Math.min(current.chargeUses, current.resources / totalChanceToUseWithCharges);
         // remaining resources
         const resWithoutCharge = Math.max(0, current.resources - current.chargeUses * totalChanceToUseWithCharges);
@@ -1706,12 +1706,12 @@ function actionsToBreakpoint(initial, current, noResources = false) {
             let resUsed = 0;
             if (expectedActions[0] < current.chargeUses) {
                 // won't run out of charges yet
-                resUsed = expectedActions[0] * Math.max(0, totalChanceToUse - ETA.rhaelyxChargePreservation);
+                resUsed = expectedActions[0] * totalChanceToUseWithCharges;
             } else {
                 // first use charges
-                resUsed = current.chargeUses * Math.max(0, totalChanceToUse - ETA.rhaelyxChargePreservation);
+                resUsed = current.chargeUses * totalChanceToUseWithCharges;
                 // remaining actions are without charges
-                resUsed += (expectedActions[0] - current.chargeUses) * Math.max(0, totalChanceToUse);
+                resUsed += (expectedActions[0] - current.chargeUses) * totalChanceToUse;
             }
             current.resources = Math.round(current.resources - resUsed);
         }
